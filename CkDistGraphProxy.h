@@ -20,6 +20,7 @@
 namespace DGM {
 
 #include "../schemes/DistGraphModel.h"
+#include "CkGraphHash.h"
 #include "../../../charm/tmp/DistBaseLB.h"
 #include "def_DGM_charm.h"
 
@@ -28,15 +29,20 @@ namespace DGM {
 
 struct LocalGraph {
     LocalGraph() = default;
+    LocalGraph(int id) : my_id(id) {}
     ~LocalGraph();
-    void init(const DistBaseLB::stats* const st);
+    virtual void init(const DistBaseLB::stats* const st);
 
-    const std::set<ExpectedMigration> confirm_migrations() const { return migrations; }
+    const std::set<ExpectedMigration>& confirm_migrations() const { return migrations; }
+
     std::set<ExpectedMigration> migrations;
+    std::map< CkResId, std::set <Vertex&> > frontiers;
     std::unordered_map<CkVrtHash, Vertex> vertices; //Indexed by hash
-    std::map< std::set <Vertex&> > frontiers;
-    std::vector<Edge> edges;
+    std::unordered_map<CkVrtId, std::set<Edge> > edges;
+    ckutil::HashMap hash_map;
     bool built = false;
+    double total_load = 0.0;
+    int my_id;
 };
 
 }
