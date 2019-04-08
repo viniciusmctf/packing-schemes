@@ -71,7 +71,7 @@ void HashMap::init() {
         CmiAssert(hash != -1);
         #endif
         #ifdef GRAPH_TEST_MODE_
-        if (hash == -1) { throw std::out_of_range; }
+        if (hash == -1) { throw std::out_of_range("Error in generation"); }
         #endif
         while (the_map[hash] != -1) {
             hash = (hash+1)%hash_size;
@@ -88,14 +88,15 @@ int HashMap::getHash(const LDObjKey &objKey) {
 
 int HashMap::getHash(const LDObjid &oid, const LDOMid &mid) {
 #if CMK_LBDB_ON
+    int hash = ObjKey(oid, hash_size);
+    
     #ifndef GRAPH_TEST_MODE_
     CmiAssert(hash > 0);
     #endif
     #ifdef GRAPH_TEST_MODE_
-    if (hash <= 0) { throw std::out_of_range; }
+    if (hash <= 0) { throw std::out_of_range("Error in getHash"); }
     #endif
 
-    int hash = ObjKey(oid, hash_size);
     for (int id = 0; id < hash_size; ++id) {
         int index = (id + hash)%hash_size;
         if (index == -1 || the_map[index] == -1) {
@@ -111,10 +112,15 @@ int HashMap::getHash(const LDObjid &oid, const LDOMid &mid) {
     return -1; // Not found
 }
 
-int HashMap::getSendHash(const LDCommData &cData) {
+int HashMap::getSendHash(LDCommData &cData) {
     return getHash(cData.sender);
 }
 
-int HashMap::getRecvHash(const LDCommData &cData) {
+int HashMap::getRecvHash(LDCommData &cData) {
     return getHash(cData.receiver.get_destObj());
+}
+
+HashMap::~HashMap() {
+    hash_size = 0;
+    the_map.clear();
 }

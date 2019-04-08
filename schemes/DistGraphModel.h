@@ -9,8 +9,10 @@
 #ifndef DGM_BASE_DEFS
 #define DGM_BASE_DEFS
 
-#include "def_DGM_charm.h"
 #include <unordered_map>
+
+
+#include "def_DGM_charm.h"
 
 namespace DGM {
 
@@ -25,11 +27,12 @@ protected:
     CkResId _id;
     CkResWg _load;
 };
-using ResourceMap = std::unordered_map<CkResId, ResourceInfo>;
+using ResourceMap = ::std::unordered_map<DGM::CkResId, DGM::ResourceInfo>;
 
 
 class Vertex {
 public:
+    Vertex(CkVrtId i) : _id(i), _weight(0) {}
     Vertex(CkVrtId i, CkVrtWg l) : _id(i), _weight(l) {}
     Vertex() = delete;
     CkVrtId id() const { return _id; }
@@ -52,8 +55,11 @@ private:
     CkResId _src;
 };
 
+
 class Edge {
 public:
+    Edge(CkVrtId from_, CkVrtId to_) : from(Vertex(from_)), to(Vertex(to_)), 
+	distance(1) {}
     Edge(const Vertex& from, const Vertex& to, CkVrtDis dist = 1) : from(from),
         to(to), distance(dist) {}
 

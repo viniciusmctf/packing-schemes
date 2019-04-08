@@ -18,13 +18,13 @@
 #ifndef _CK_HASH_TABLE_REIMPL_H_
 #define _CK_HASH_TABLE_REIMPL_H_
 
-#include "../../../charm/tmp/BaseLB.h"
+#include "DistBaseLB.h"
 
 namespace ckutil {
     class HashMap {
     public:
         HashMap() = default;
-        HashMap(const BaseLB::stats* const st) : st(st) {}
+        HashMap(const DistBaseLB::LDStats* st) : st(st) {}
         ~HashMap();
         void init();
         int getHash(const LDObjKey &);
@@ -32,9 +32,8 @@ namespace ckutil {
         int getSendHash(LDCommData &cData);
         int getRecvHash(LDCommData &cData);
 
-    private:
         int hash_size;
-        const BaseLB::stats* const st;
+        const DistBaseLB::LDStats*& st;
         std::vector<int> the_map = {};
     };
 }
