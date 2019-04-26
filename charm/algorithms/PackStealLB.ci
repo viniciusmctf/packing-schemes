@@ -1,0 +1,17 @@
+module PackStealLB {
+
+extern module DistBaseLB;
+initnode void lbinit(void);
+
+  group [migratable] PackStealLB : DistBaseLB {
+    entry void PackStealLB(const CkLBOptions &);
+    entry [reductiontarget] void AvgLoadReduction(double load);
+    entry void StealLoad(int thief_id, double stolen_load, int n_info, int id_arr[n_info], double load_arr[n_info], double times_arr[n_info], int n_tries);
+    entry [reductiontarget] void EndBarrier();
+    entry [reductiontarget] void FinishLoadBalance();
+    entry void SuggestSteal(int from, double f_load, double f_time, int victim, int saturation_count);
+    entry void GiveLoad(int ntasks, double total_load, int seeking, int n_info, int id_arr[n_info], double load_arr[n_info], double times_arr[n_info], int from);
+    entry void IsDone(int n_info, int done_pes[n_info]);
+  };
+
+};
