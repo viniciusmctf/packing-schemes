@@ -121,10 +121,11 @@ void PackDropLB::ChareSetup(int count) {
       int pack_id = 0;
       // From UpdateWorkMap to our local packing scheme
       for (auto obj : removed_objs) {
+        if (_lb_args.debug() > 3) CkPrintf("[%d] Creating Pack(%d), adding task of id <%d>, and load <%.5lf> \n", CkMyPe(), pack_id, obj.sys_index, obj.load);
         packs[pack_id] = std::vector<int>();
         pack_load_now += obj.load;
+        packs[pack_id].push_back(obj.sys_index);
         if (pack_load_now > pack_floor) {
-          packs[pack_id].push_back(obj.sys_index);
           packs[++pack_id] = std::vector<int> ();
           my_load -= pack_load_now;
           pack_load_now = 0.0;
@@ -143,6 +144,7 @@ void PackDropLB::ChareSetup(int count) {
         CkCallback cb(CkIndex_PackDropLB::First_Barrier(), thisProxy);
         CkStartQD(cb);
     }
+    //CkPrintf("[%d] Ending ChareSetup step\n", CkMyPe());
 }
 
 void PackDropLB::First_Barrier() {
@@ -152,6 +154,7 @@ void PackDropLB::First_Barrier() {
 void PackDropLB::LoadBalance() {
     lb_started = true;
     if (packs.size() == 0) {
+        CkPrintf("[%d] Won't perform migrations, feels done ...\n", CkMyPe());
         msg = new(total_migrates,CkNumPes(),CkNumPes(),0) LBMigrateMsg;
         msg->n_moves = total_migrates;
         contribute(CkCallback(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy));
@@ -160,7 +163,8 @@ void PackDropLB::LoadBalance() {
     underloaded_pe_count = pe_no.size();
     // CalculateCumulateDistribution();
     CalculateReceivers();
-    PackSend();
+    PackSend(0,0);
+    //CkPrintf("[%d] In LoadBalance Step\n", CkMyPe());
 }
 
 void PackDropLB::CalculateReceivers() {
@@ -175,6 +179,7 @@ void PackDropLB::CalculateReceivers() {
 
 int PackDropLB::FindReceiver() {
   int rec = 0;
+  //if (_lb_args.debug() > 2) CkPrintf("[%d] Looking for receivers...\n", CkMyPe());
   if (receivers.size() < CkNumPes()/4) {
       rec = rand()%CkNumPes();
       while (rec == CkMyPe()) {
@@ -192,13 +197,14 @@ int PackDropLB::FindReceiver() {
 void PackDropLB::PackSend(int pack_id, int one_time) {
     tries++;
     if (tries >= 4) {
-        if (_lb_args.debug()) CkPrintf("[%d] No receivers found\n", CkMyPe());
+        //if (_lb_args.debug()) CkPrintf("[%d] No receivers found\n", CkMyPe());
         EndStep();
         return;
     }
     int idp = pack_id;
+    //if (_lb_args.debug() > 2) CkPrintf("[%d] Trying to send %d packs (%d) to random receivers, total of %d tasks..\n", CkMyPe(), packs.size(), idp, packs[idp].size());
     while (idp < packs.size()) {
-        if (packs[idp].empty()) {
+        if (packs[idp].size() == 0) {
             ++idp;
             continue;
         }
