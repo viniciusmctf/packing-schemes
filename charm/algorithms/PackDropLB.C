@@ -16,7 +16,7 @@ CreateLBFunc_Def(PackDropLB, "Pack-based distributed load balancer");
 
 CkReductionMsg* sumTwoIndependentDoubles(int n_msg, CkReductionMsg** msgs) {
   //Sum starts off at zero
-  double ret[2]=0,0;
+  double ret[2]= {0,0};
   for (int i=0;i<n_msg;i++) {
     //Sanity check:
     CkAssert(msgs[i]->getSize()==2*sizeof(double));
@@ -29,7 +29,8 @@ CkReductionMsg* sumTwoIndependentDoubles(int n_msg, CkReductionMsg** msgs) {
 }
 
 /*global*/ CkReduction::reducerType sumTwoIndependentDoublesType;
-/*initnode*/ void registerSumTwoIndependentDoubles(void) {
+/*initnode*/ void registerSumTwoIndependentDoubles(void) 
+{
   sumTwoIndependentDoublesType = CkReduction::addReducer(sumTwoIndependentDoubles);
 }
 
@@ -76,11 +77,11 @@ void PackDropLB::Strategy(const DistBaseLB::LDStats* const stats) {
     // Parse through LDStats to initialize work map
     int nobjs = my_stats->n_objs;
     std::vector<std::pair<int,double>> map;
-    map.reserve(nojbs);
+    map.reserve(nobjs);
     migrateInfo = {};
     for (int i = 0; i < nobjs; ++i) {
       if (my_stats->objData[i].migratable && my_stats->objData[i].wallTime > 0.0001) {
-        map.emplace_back(i, my_stats->objData[i].wallTime);me);
+        map.emplace_back(i, my_stats->objData[i].wallTime);
       }
     }
     local_work_info = WorkMap(map);
@@ -89,24 +90,24 @@ void PackDropLB::Strategy(const DistBaseLB::LDStats* const stats) {
     my_load = local_work_info.calculate_total_load();
     double l = my_load;
     double chares = (double) my_stats->n_objs;
-    double data[2] = l, chares;
+    double data[2] = {l, chares};
 
-    CkCallback cb(CkReductionTarget(PackDropLB, Load_Setup), thisProxy);
-    contribute(2*sizeof(double), data, sumTwoIndependentDoubles, cb);
+    CkCallback cb(CkReductionTarget(PackDropLB, LoadSetup), thisProxy);
+    contribute(2*sizeof(double), (void*) data, sumTwoIndependentDoublesType, cb);
 }
 
-void PackDropLB::Load_Setup(CkReductionMsg* loadAndChares) {
+void PackDropLB::LoadSetup(CkReductionMsg* loadAndChares) {
   double* res = (double*) loadAndChares->getData();
   avg_load = res[0]/CkNumPes();
   int chares = (int) res[1];
   if (_lb_args.debug() > 2)
     CkPrintf("[%d] Sanity check, avg load: %lf, chares in lf: %lf, chares int: %d \n",
       CkMyPe(), avg_load, res[1], chares);
-  Chare_Setup(chares);
+  ChareSetup(chares);
 }
 
 
-void PackDropLB::Chare_Setup(int count) {
+void PackDropLB::ChareSetup(int count) {
     chare_count = count;
     double avg_task_size = (CkNumPes()*avg_load)/chare_count;
     pack_load = avg_task_size*(2 - CkNumPes()/chare_count);
@@ -115,7 +116,8 @@ void PackDropLB::Chare_Setup(int count) {
     double pack_floor = pack_load*(1-threshold);
     double pack_load_now = 0;
     if (my_load > ceil) {
-      auto removed_objs = local_work_info.remove_batch_of_load(ceil - avg_load);
+      double rem_load = ceil - avg_load;
+      auto removed_objs = local_work_info.remove_batch_of_load(rem_load);
       int pack_id = 0;
       // From UpdateWorkMap to our local packing scheme
       for (auto obj : removed_objs) {

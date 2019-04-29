@@ -46,7 +46,7 @@ void PackStealLB::InitWorkMap() {
   // Parse through LDStats to initialize work map
   int nobjs = my_stats->n_objs;
   std::vector<std::pair<int,double>> map;
-  map.reserve(nojbs);
+  map.reserve(nobjs);
   migrateInfo = {};
   for (int i = 0; i < nobjs; ++i) {
     if (my_stats->objData[i].migratable && my_stats->objData[i].wallTime > 0.0001) {

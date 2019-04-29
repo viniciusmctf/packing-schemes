@@ -1,9 +1,10 @@
 #ifndef _PACK_DROP_LB_
 #define _PACK_DROP_LB_
 
-#include "DistBaseLB"
+#include "DistBaseLB.h"
 #include "PackDropLB.decl.h"
 
+#include "OrderedElement.h"
 #include "UpdateProcMap.h"
 #include "UpdateWorkMap.h"
 #include <vector>
@@ -16,7 +17,7 @@ class PackDropLB : public CBase_PackDropLB {
 public:
     PackDropLB(const CkLBOptions&);
     PackDropLB(CkMigrateMessage *m);
-    void LoadSetup(double total_load);
+    void LoadSetup(CkReductionMsg* m); // Reduction Target
     void ChareSetup(int count);
     void PackAck(int pack_id, int from, int psize, bool force);
     void RecvAck(int pack_id, int to, bool success);
@@ -85,7 +86,7 @@ private:
    LBMigrateMsg* msg;
    const DistBaseLB::LDStats* my_stats;
    CProxy_PackDropLB thisProxy;
-}
+};
 
 
 

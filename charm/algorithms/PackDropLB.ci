@@ -12,7 +12,7 @@ group [migratable] PackDropLB : DistBaseLB {
   entry void EndStep();
   entry void GossipLoadInfo(int req_hop, int pe, int n, int pe_no[n], double load[n]);
   entry void First_Barrier();
-  entry [reductiontarget] void Load_Setup(CkReductionMsg* msg);
+  entry [reductiontarget] void LoadSetup(CkReductionMsg* msg);
   entry [reductiontarget] void Final_Barrier();
   entry [reductiontarget] void DetailsRedux(int migs);
 };
