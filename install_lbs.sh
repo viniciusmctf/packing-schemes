@@ -5,7 +5,7 @@
 # It could add unecessary dependencies to your Charm installation if ran more than once
 
 #Dont forget to redefine your CHARM_DIR
-CHARM_DIR=~/charm
+CHARM_DIR=~/git/testbench/charm
 TMP_DIR=$CHARM_DIR/tmp
 WORK_DIR=$(pwd)
 LB_LIST="PackDropLB PackStealLB"
@@ -24,17 +24,23 @@ cd; cd $TMP_DIR # Go to charm dir
 echo "I am at: $(pwd)"
 
 # This should add our LBs to the Makefile_lb.sh file:
-awk -v lbs="$LB_LIST" '{gsub("COMMON_LBS=\"","COMMON_LBS=\""lbs" "); print}' Makefile_lb.sh > Makefile_lb.sh
+awk -v lbs="$LB_LIST" '{gsub("COMMON_LDBS=\"","COMMON_LDBS=\""lbs" "); print}' Makefile_lb.sh >> tmp_Makefile_lb.sh
 echo "#This file has been modified by Packing Schemes installer" >> Makefile_lb.sh
 
+cat tmp_Makefile_lb.sh > Makefile_lb.sh
+rm tmp_Makefile_lb.sh
+
 # This should add our dependencies to the Charm++ Makefile, we add ourselves to the Chare Kernel dependencies here:
-awk -v deps="$DEPS_LIST" '{gsub("ckgraph.o","ckgraph.o "deps); print}' Makefile > Makefile
+touch tmp_Makefile__
+awk -v deps="$DEPS_LIST" '{gsub("ckgraph.o","ckgraph.o "deps); print}' Makefile >> tmp_Makefile__
 echo "Done adding dependencies ..."
-awk -v includes="$INC_LIST" '{gsub("ckgraph.h","ckgraph.h "includes); print}' Makefile > Makefile
+awk -v includes="$INC_LIST" '{gsub("ckgraph.h","ckgraph.h "includes); print}' tmp_Makefile__ >> ttmp_Makefile__
 echo "Done adding core headers ..."
+cat ttmp_Makefile__ > Makefile 
+rm tmp_Makefile__ ttmp_Makefile__
 
 echo "Recompiling Charm++ with new LBs"
-./Makefile_lb
+./Makefile_lb.sh
 make depends -j; make charm++ -j2
 echo "Done"
 
