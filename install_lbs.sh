@@ -14,6 +14,7 @@ DEPS_LIST="UpdateProcMap.o UpdateWorkMap.o"
 
 set -x
 # This copies the files from pwd to the charm tmp dir:
+cp $WORK_DIR/schemes/OrderedElement* $TMP_DIR/
 cp $WORK_DIR/schemes/Update* $TMP_DIR/ # Copies the dependencies
 cp $WORK_DIR/charm/algorithms/* $TMP_DIR/ # Copies the LB algorithms
 
@@ -36,7 +37,7 @@ awk -v deps="$DEPS_LIST" '{gsub("ckgraph.o","ckgraph.o "deps); print}' Makefile 
 echo "Done adding dependencies ..."
 awk -v includes="$INC_LIST" '{gsub("ckgraph.h","ckgraph.h "includes); print}' tmp_Makefile__ >> ttmp_Makefile__
 echo "Done adding core headers ..."
-cat ttmp_Makefile__ > Makefile 
+cat ttmp_Makefile__ > Makefile
 rm tmp_Makefile__ ttmp_Makefile__
 
 echo "Recompiling Charm++ with new LBs"
