@@ -12,6 +12,7 @@ LB_LIST="PackDropLB PackStealLB"
 INC_LIST="UpdateProcMap.h UpdateWorkMap.h"
 DEPS_LIST="UpdateProcMap.o UpdateWorkMap.o"
 
+set -x
 # This copies the files from pwd to the charm tmp dir:
 cp $WORK_DIR/schemes/Update* $TMP_DIR/ # Copies the dependencies
 cp $WORK_DIR/charm/algorithms/* $TMP_DIR/ # Copies the LB algorithms
@@ -38,3 +39,4 @@ make depends -j; make charm++ -j2
 echo "Done"
 
 cd $WORK_DIR
+set +x
