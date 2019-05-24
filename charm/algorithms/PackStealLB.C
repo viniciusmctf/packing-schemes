@@ -264,8 +264,6 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
     if (!has_packs) { // DEFINE HAS_PACKS
       DetermineMigratingWork();
     }
-    // I can donate.
-    //CkPrintf("[%d] Overloaded Victim case\n", CkMyPe());
     bool done_donating = false;
     double sent_load = 0.0;
     int count = 0;
@@ -273,15 +271,9 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
       double tmp_sent_load = 0.0;
       int begin_id = batch_delimiters[current_attempts];
       int end_id = batch_delimiters[++current_attempts]; // Update current_attempts
-      //CkPrintf("[%d] Checking out indexes %d and %d from BDL\n", CkMyPe(), begin_id, end_id);
-
-      // CkPrintf("[%d] Thief in commit message: %d\n", CkMyPe(), thief_id);
-      //CkPrintf("[%d] Creating donated load pack, from %d to %d.\n", CkMyPe(), begin_id, end_id);
       for (int i = begin_id; i < end_id; i++) {
         AddToMigrationMessage(thief_id, migrate_ids[i]);
       }
-
-      // CkPrintf("[%d] This pack contains %d tasks.\n", CkMyPe(), end_id - begin_id);
       for (int i = begin_id; i < end_id; i++) {
         tmp_sent_load += migrate_loads[i];
         count++;
@@ -294,35 +286,27 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
         done_donating = true;
       }
     }
-
-    // CkPrintf("[%d] Pack of load %lf created.\n", CkMyPe(), sent_load);
     int n_info = remote_pe_info.size();
     int* id_arr; double* load_arr;
     double* times_arr;
     VectorizeMap(id_arr, load_arr, times_arr);
     thisProxy[thief_id].GiveLoad(count, sent_load, 0, n_info, id_arr, load_arr, times_arr, CkMyPe());
     total_migrates += count;
-    //CkPrintf("[%d] I am donating %d tasks to [%d], with a total load of %lf\n", CkMyPe(), count, thief_id, sent_load);
     if (current_attempts >= batch_delimiters.size()-1) {
       has_packs = false;
     }
     if (max_steal_attempts-current_attempts <= 0 && !finished) {
       finished = true;
-      // done_pe_list.insert(CkMyPe());
     }
 
   } else {
-    // CkPrintf("[%d] Entering second case.\n", CkMyPe());
-    // CkPrintf("[%d] Tries: %d, Max: %d\n", CkMyPe(), n_tries, max_steal_attempts);
     if ((n_tries > max_steal_attempts || my_load >= ub_load) && local_work_info.size() > 1) {
-      //CkPrintf("[%d] Entering forced donation case.\n", CkMyPe());
       double donating = stolen_load/2.0;
       double steal_load = stolen_load;
       auto obj_vec = local_work_info.remove_batch_of_load(donating);
       if (obj_vec.size() < 1) {
         return;
       }
-      // CkPrintf("[%d] The stolen load is: %lf, in %d\n", CkMyPe(), steal_load, local_work_info.size());
 
       double accum = 0.0; int donations = 0;
       // CkPrintf("[%d] Thief in commit message: %d\n", CkMyPe(), thief_id);
@@ -338,10 +322,6 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
       int* id_arr; double* load_arr;
       double* times_arr;
       VectorizeMap(id_arr, load_arr, times_arr); //CkPrintf("[%d] After Vectorize call:\n", CkMyPe());
-      //for (int i = 0; i < n_info; i++) {
-        //CkPrintf("[%d] Map index <%d>: %d, %lf, %lf\n", CkMyPe(), i, id_arr[i], load_arr[i], times_arr[i]);
-      //}
-      //CkPrintf("[%d] I am donating %d tasks to [%d], with a total load of %lf\n", CkMyPe(), donations, thief_id, accum);
       if (donations < 1) {
         return;
         int victim = remote_pe_info.last().first;
