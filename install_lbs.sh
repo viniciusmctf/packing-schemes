@@ -17,6 +17,8 @@ set -x
 cp $WORK_DIR/schemes/OrderedElement* $TMP_DIR/
 cp $WORK_DIR/schemes/Update* $TMP_DIR/ # Copies the dependencies
 cp $WORK_DIR/charm/algorithms/* $TMP_DIR/ # Copies the LB algorithms
+cp $WORK_DIR/charm/mods/* $TMP_DIR/ # Copies the LB algorithms
+#cp $WORK_DIR/charm/* $TMP_DIR/ # Copies the LB algorithms
 
 
 # Update the Charm++ Makefile and Makefile_lb.sh
