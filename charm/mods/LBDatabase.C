@@ -287,9 +287,9 @@ void _loadbalancerInit()
   					     "Turn on LB debugging printouts");
 
   // Setting Packing based LBs args:
-  _lb_args.neighbors_count() = CmiGetArgIntDesc(argv, "+LBNeighbors",
-                                        "Using user-provided Neighbor count");
-  _lb_args.lbpacksize() = CmiGetArgDoubleDesc(argv, "+LBPackSize",
+  CmiGetArgIntDesc(argv, "+LBNeighbors", &_lb_args.neighbors_count(),
+                                      "Using user-provided Neighbor count");
+  CmiGetArgDoubleDesc(argv, "+LBPackSize", &_lb_args.lbpacksize(), 
                                         "Using user-provided packsize in %");
 
   // getting the size of the team with +teamSize
