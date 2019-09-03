@@ -158,3 +158,10 @@ void WorkMap::create_obj_naive_map(const std::vector<std::pair<int,double>>& map
 void WorkMap::remove_from_all(const WorkObj& obj) {
     return;
 } // Should be overrided by specialized classes
+
+void WorkMap::clear() {
+  all_objs.clear();
+  ordered_objs.clear();
+  recent.clear();
+  my_total_load = 0.0;
+}

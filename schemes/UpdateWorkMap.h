@@ -65,6 +65,8 @@ class WorkMap {
     std::vector<WorkObj> remove_batch_of_load(double& expected_load);
     double calculate_total_load();
 
+    void clear();
+
  protected:
     std::unordered_map<int, WorkObj> all_objs;
     std::vector<WorkGroup> frontiers;

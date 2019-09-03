@@ -56,6 +56,7 @@ void PackStealLB::InitWorkMap() {
   }
   // CkPrintf("[%d] Done parsing\n", CkMyPe());
   //CkPrintf("[%d] I have a total of %d clients registered (nobjs + 2)\n", CkMyPe(), nobjs+2);
+  local_work_info = WorkMap(); local_work_info.clear();
   local_work_info = WorkMap(map);
   migrateInfo.reserve(nobjs);
   // CkPrintf("[%d] WorkMapInit done\n", CkMyPe());
