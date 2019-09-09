@@ -1,0 +1,17 @@
+module SelfishLB {
+
+extern module DistBaseLB;
+initnode void lbinit(void);
+
+group [migratable] SelfishLB : DistBaseLB {
+  entry void SelfishLB(const CkLBOptions &);
+  entry [reductiontarget] void NextIteration();
+  entry void ConfirmRecv(bool recv, int who, int arr_position);
+  entry void MoveTasks(int who, int msg_size,int task_id[msg_size], int destination[msg_size]);
+  entry void ConfirmTasks();
+  entry void InformMigrations(int migs);
+  entry [reductiontarget] void FinishLoadBalance();
+  entry [reductiontarget] void FinalBarrier();
+};
+
+};

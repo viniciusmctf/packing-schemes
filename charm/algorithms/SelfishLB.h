@@ -18,14 +18,18 @@ public:
     SelfishLB(CkMigrateMessage *m);
     void ReceiveTask(int host_id, double host_load, int task_id, double task_load, int arr_position);
     void ConfirmRecv(bool recv, int who, int arr_position);
-    void MoveTasks(int msg_size,int task_id[], int destination[]);
+    void MoveTasks(int who, int msg_size,int task_id[], int destination[]);
+    void ConfirmTasks();
+    void InformMigrations(int count);
     void NextIteration(); // Reduction target, for iterations
+    void FinishLoadBalance();
+    void FinalBarrier();
 
 private:
    // Private functions
    void InitLB(const CkLBOptions &);
    void Strategy(const DistBaseLB::LDStats* const stats);
-   void InsertMigrateInfo(int task_id, int destination); // Fool proof migrateInfo cretion
+   void InsertMigrateInfo(); // Fool proof migrateInfo creation
 
    // Random Decision Process
    void CalculateMigrations(); // Decide which tasks will go where and issue the "ReceiveTask" calls
@@ -33,10 +37,11 @@ private:
 
    // Atributes
    std::vector<MigrateInfo*> migrateInfo;
-   std::vector< std::pair <int, int> > task_to_destination_map;
+   std::map<int, int> task_to_destination_map;
    std::vector< task_global_id_t > all_tasks;
+   std::vector<int> mig_counts;
    double my_load;
-   int waiting_messages;
+   int waiting_messages, cur_iteration;
 
   // Random Attributes
   std::random_device rd;  //Will be used to obtain a seed for the random number engine
@@ -44,6 +49,7 @@ private:
 
    // Magical constants
    int kIterations;
+   double kMigProb;
 
    // Charm Attributes
    LBMigrateMsg* msg;
