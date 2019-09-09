@@ -8,7 +8,7 @@
 CHARM_DIR=/home/vinicius/git-ecl/git/charm
 TMP_DIR=$CHARM_DIR/tmp
 WORK_DIR=$(pwd)
-LB_LIST="PackDropLB PackStealLB"
+LB_LIST="PackDropLB PackStealLB SelfishLB"
 INC_LIST="UpdateProcMap.h UpdateWorkMap.h"
 DEPS_LIST="UpdateProcMap.o UpdateWorkMap.o"
 

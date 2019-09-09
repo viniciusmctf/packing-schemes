@@ -8,6 +8,7 @@
 #include <tuple>
 #include <queue>
 #include <unordered_map>
+#include <random>
 
 void CreateSelfishLB();
 
@@ -33,7 +34,7 @@ private:
 
    // Random Decision Process
    void CalculateMigrations(); // Decide which tasks will go where and issue the "ReceiveTask" calls
-   bool DetermineMigrationSuccess(double host_load); // my_load is available in context
+   bool DetermineMigrationSuccess(double host_load, double task_load); // my_load is available in context
 
    // Atributes
    std::vector<MigrateInfo*> migrateInfo;
@@ -44,8 +45,6 @@ private:
    int waiting_messages, cur_iteration;
 
   // Random Attributes
-  std::random_device rd;  //Will be used to obtain a seed for the random number engine
-  std::mt19937 gen; //Standard mersenne_twister_engine seeded with rd()
 
    // Magical constants
    int kIterations;

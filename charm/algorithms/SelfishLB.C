@@ -28,7 +28,6 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
     CkPrintf("Starting SelfishLB...\n");
   }
 
-  gen(rd()); // Set random device
   kIterations = 10; cur_iteration = 1;
   mig_counts.clear();
   mig_counts = std::vector<int> (CkNumPes(), 0); // Fill mig_counts with 0s
@@ -39,13 +38,12 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
   int nobjs = my_stats->n_objs;
   all_tasks.reserve(2*nobjs);
   task_to_destination_map.clear();
-  task_to_destination_map.reserve(nobjs);
   int my_id = CkMyPe();
 
   for (int i = 0; i < nobjs; ++i) {
-    if (my_stats->objs[i].wallTime > 0.0001 && my_stats->objs[i].migratable) {
+    if (my_stats->objData[i].wallTime > 0.0001 && my_stats->objData[i].migratable) {
       // task_to_destination_map.emplace({my_id, my_id, i}); // Final destination map
-      all_tasks.emplace({my_id, my_id, i, my_stats->objs[i].wallTime}); // Vector of temporary migration tokens
+      all_tasks.push_back(std::make_tuple(my_id, my_id, i, my_stats->objData[i].wallTime)); // Vector of temporary migration tokens
     }
   }
 
@@ -53,6 +51,8 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
 }
 
 void SelfishLB::CalculateMigrations() {
+  std::random_device rd;
+  std::mt19937 gen(rd());
   std::uniform_int_distribution<> dis(0, CkNumPes()-1);
 
   for (int i = 0; i < all_tasks.size(); i++) {
@@ -71,7 +71,7 @@ void SelfishLB::ReceiveTask(int host_id, double host_load, int task_id, double t
   bool receive = DetermineMigrationSuccess(host_load, task_load);
   if (receive) {
     my_load += task_load;
-    all_tasks.emplace({host_id, CkMyPe(), task_id, task_load});
+    all_tasks.push_back(std::make_tuple(host_id, CkMyPe(), task_id, task_load));
   }
   thisProxy[host_id].ConfirmRecv(receive, CkMyPe(), arr_position);
 }
@@ -82,7 +82,7 @@ void SelfishLB::ConfirmRecv(bool recv, int who, int arr_position) {
     auto task = all_tasks[arr_position]; // Modifying this should modify the one in the array
     all_tasks[arr_position] = std::make_tuple(std::get<0>(task),
       who, std::get<2>(task), std::get<3>(task));
-    my_load -= task_load;
+    my_load -= std::get<3>(task);
   }
   if (!waiting_messages) {
     cur_iteration++;
@@ -107,7 +107,7 @@ void SelfishLB::NextIteration() {
       // This could be optimized to one contiguous array, accessing 2 by 2, but the code would be less readable
       auto it = entry.second.begin();
       for (int i = 0; i < msg_size; i++, it++) {
-        task_target = (std::pair<int,int>)(*it);
+        auto task_target = (std::pair<int,int>)(*it);
         tids[i] = task_target.first; targets[i] = task_target.second;
       }
       thisProxy[remote_host].MoveTasks(CkMyPe(), msg_size, tids, targets);
@@ -128,7 +128,7 @@ void SelfishLB::MoveTasks(int who, int msg_size, int* tids, int* targets) {
   thisProxy[who].ConfirmTasks();
 }
 
-void ConfirmTasks() {
+void SelfishLB::ConfirmTasks() {
   waiting_messages--;
   if (!waiting_messages){
     contribute(CkCallback(CkReductionTarget(SelfishLB, FinishLoadBalance), thisProxy));
@@ -149,6 +149,8 @@ bool SelfishLB::DetermineMigrationSuccess(double host_load, double task_load) {
   bool ret_val = false;
   if (my_load + task_load > host_load) {
     double chance = 1.0 - (my_load/host_load);
+    std::random_device rd;
+    std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0);
     ret_val = (chance > dis(gen));
   }
@@ -177,13 +179,13 @@ void SelfishLB::InsertMigrateInfo() {
   for (int dest = 0; dest < CkNumPes(); dest++) {
     thisProxy[dest].InformMigrations(mig_counts[dest]);
   }
-  contribute(CkCallback(SelfishLB, FinalBarrier), thisProxy);
+  contribute(CkCallback(CkReductionTarget(SelfishLB, FinalBarrier), thisProxy));
 }
 
-void FinalBarrier() {
-  ProcessMigrationDecisions(msg);
+void SelfishLB::FinalBarrier() {
+  ProcessMigrationDecision(msg);
 }
 
-void InformMigrations(int count) {
+void SelfishLB::InformMigrations(int count) {
   migrates_expected += count;
 }
