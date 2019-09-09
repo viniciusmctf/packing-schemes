@@ -189,3 +189,5 @@ void SelfishLB::FinalBarrier() {
 void SelfishLB::InformMigrations(int count) {
   migrates_expected += count;
 }
+
+#include "SelfishLB.def.h"
