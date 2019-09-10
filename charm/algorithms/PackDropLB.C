@@ -29,7 +29,7 @@ CkReductionMsg* sumTwoIndependentDoubles(int n_msg, CkReductionMsg** msgs) {
 }
 
 /*global*/ CkReduction::reducerType sumTwoIndependentDoublesType;
-/*initnode*/ void registerSumTwoIndependentDoubles(void) 
+/*initnode*/ void registerSumTwoIndependentDoubles(void)
 {
   sumTwoIndependentDoublesType = CkReduction::addReducer(sumTwoIndependentDoubles);
 }
@@ -154,7 +154,8 @@ void PackDropLB::First_Barrier() {
 void PackDropLB::LoadBalance() {
     lb_started = true;
     if (packs.size() == 0) {
-        CkPrintf("[%d] Won't perform migrations, feels done ...\n", CkMyPe());
+        if (_lb_args.debug() > 0)
+          CkPrintf("[%d] Won't perform migrations, feels done ...\n", CkMyPe());
         msg = new(total_migrates,CkNumPes(),CkNumPes(),0) LBMigrateMsg;
         msg->n_moves = total_migrates;
         contribute(CkCallback(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy));
