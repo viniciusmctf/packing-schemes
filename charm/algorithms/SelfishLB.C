@@ -183,6 +183,8 @@ void SelfishLB::InsertMigrateInfo() {
 }
 
 void SelfishLB::FinalBarrier() {
+  if (_lb_args.debug() > 1)
+    CkPrintf("[%d] My load after LB: %lf\n", CkMyPe(), my_load);
   ProcessMigrationDecision(msg);
 }
 
