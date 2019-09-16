@@ -44,6 +44,7 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
     if (my_stats->objData[i].wallTime > 0.0001 && my_stats->objData[i].migratable) {
       // task_to_destination_map.emplace({my_id, my_id, i}); // Final destination map
       all_tasks.push_back(std::make_tuple(my_id, my_id, i, my_stats->objData[i].wallTime)); // Vector of temporary migration tokens
+      my_load += my_stats->objData[i].wallTime;
     }
   }
 
