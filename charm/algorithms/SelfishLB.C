@@ -1,9 +1,9 @@
 #include "SelfishLB.h"
 #include <random>
 
-void __control_print(const char* string) {
+void __this_iteration_load(const char* string, double makespan) {
   if (CkMyPe() == 0 && _lb_args.debug() > 1) {
-    CkPrintf("%s\n", string);
+    CkPrintf("[%d] %s %lf\n", cur_iteration, string, makespan);
   }
 }
 
@@ -27,8 +27,12 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
   if (CkMyPe() == 0) {
     CkPrintf("Starting SelfishLB...\n");
   }
-
-  kIterations = _lb_args.lbpacksize(); cur_iteration = 1;
+  if (_lb_args.lbpacksize() > 0 && _lb_args.lbpacksize() < CkNumPes()) {
+    kIterations = _lb_args.lbpacksize();
+  } else {
+    kIterations = CkNumPes();
+  }
+  cur_iteration = 1;
   mig_counts.clear();
   mig_counts = std::vector<int> (CkNumPes(), 0); // Fill mig_counts with 0s
   waiting_messages = 0; migrates_expected = 0;
@@ -48,6 +52,10 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
     }
   }
 
+  if (_lb_args.debug() > 1) {
+    CkPrintf("%d, Load at Start: %lf\n", CkMyPe(), my_load);
+  }
+
   CalculateMigrations();
 }
 
@@ -64,6 +72,13 @@ void SelfishLB::CalculateMigrations() {
         std::get<2>(task), std::get<3>(task), i);
       waiting_messages++;
     }
+  }
+
+  if (!waiting_messages) {
+    cur_iteration++;
+    double tmp = my_load;
+    CkCallback cb = CkCallback(CkReductionTarget(SelfishLB, NextIteration), thisProxy);
+    contribute(sizeof(double), &tmp, CkReduction::max_double, cb);
   }
 }
 
@@ -87,12 +102,14 @@ void SelfishLB::ConfirmRecv(bool recv, int who, int arr_position) {
   }
   if (!waiting_messages) {
     cur_iteration++;
-    contribute(CkCallback(CkReductionTarget(SelfishLB, NextIteration), thisProxy));
+    double tmp = my_load;
+    CkCallback cb = CkCallback(CkReductionTarget(SelfishLB, NextIteration), thisProxy);
+    contribute(sizeof(double), &tmp, CkReduction::max_double, cb);
   }
 }
 
-void SelfishLB::NextIteration() {
-  __control_print(".");
+void SelfishLB::NextIteration(double makespan) {
+  __this_iteration_load("Makespan", makespan);
   if (cur_iteration >= kIterations) {
     // Prepare to inform moves of tasks in remote peers
     std::map< int, std::map<int, int> > remote_task_map; // PE_ID -> Task -> Target
@@ -179,13 +196,13 @@ void SelfishLB::InsertMigrateInfo() {
   for (int dest = 0; dest < CkNumPes(); dest++) {
     thisProxy[dest].InformMigrations(mig_counts[dest]);
   }
-  
+
   if (_lb_args.debug() > 3) CkPrintf("[%d] Confirm final barrier commit with load %lf\n", CkMyPe(), my_load);
   contribute(CkCallback(CkReductionTarget(SelfishLB, FinalBarrier), thisProxy));
 }
 
 void SelfishLB::FinalBarrier() {
-  if (_lb_args.debug() > 1)
+  if (_lb_args.debug() > 2)
     CkPrintf("[%d] My load after LB: %lf\n", CkMyPe(), my_load);
   ProcessMigrationDecision(msg);
 }
