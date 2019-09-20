@@ -1,9 +1,9 @@
 #include "SelfishLB.h"
 #include <random>
 
-void __this_iteration_load(const char* string, double makespan) {
+void __this_iteration_load(int it, const char* string, double makespan) {
   if (CkMyPe() == 0 && _lb_args.debug() > 1) {
-    CkPrintf("[%d] %s %lf\n", cur_iteration, string, makespan);
+    CkPrintf("[%d] %s %lf\n", it, string, makespan);
   }
 }
 
@@ -109,7 +109,7 @@ void SelfishLB::ConfirmRecv(bool recv, int who, int arr_position) {
 }
 
 void SelfishLB::NextIteration(double makespan) {
-  __this_iteration_load("Makespan", makespan);
+  __this_iteration_load(cur_iteration, "Makespan", makespan);
   if (cur_iteration >= kIterations) {
     // Prepare to inform moves of tasks in remote peers
     std::map< int, std::map<int, int> > remote_task_map; // PE_ID -> Task -> Target
