@@ -22,7 +22,7 @@ public:
     void MoveTasks(int who, int msg_size,int task_id[], int destination[]);
     void ConfirmTasks();
     void InformMigrations(int count);
-    void NextIteration(); // Reduction target, for iterations
+    void NextIteration(double); // Reduction target, for iterations
     void FinishLoadBalance();
     void FinalBarrier();
 
@@ -42,7 +42,7 @@ private:
    std::vector< task_global_id_t > all_tasks;
    std::vector<int> mig_counts;
    double my_load;
-   int waiting_messages, cur_iteration;
+   int waiting_messages, leaving, cur_iteration;
 
   // Random Attributes
 
