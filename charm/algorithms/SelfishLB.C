@@ -181,7 +181,7 @@ void SelfishLB::FinishLoadBalance() {
 
 bool SelfishLB::DetermineMigrationSuccess(double host_load, double task_load) {
   bool ret_val = false;
-  if (my_load + task_load > host_load) {
+  if (my_load + task_load < host_load) {
     double chance = 1.0 - (my_load/host_load);
     std::random_device rd;
     std::mt19937 gen(rd());
