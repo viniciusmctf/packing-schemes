@@ -140,11 +140,18 @@ void SelfishLB::NextIteration(double makespan) {
 }
 
 void SelfishLB::MoveTasks(int who, int msg_size, int* tids, int* targets) {
-  for (int i = 0; i < msg_size; i++) {
-    task_to_destination_map.emplace(tids[i], targets[i]);
+  int i = 0;
+  int tid = tids[i]; int target = targets[i];
+  int _task; int _target; int _src; double _load;
+  for (int j = 0; i < msg_size && j < all_tasks.size(); j++) {
+    std::tie(_src, _target, _task, _load) = all_tasks[j];
+    if (_task == tid && _src == CkMyPe()) {
+      all_tasks[j] = std::make_tuple(_src, _target, _task, _load);
+    }
   }
   thisProxy[who].ConfirmTasks();
 }
+
 
 void SelfishLB::ConfirmTasks() {
   waiting_messages--;
@@ -203,7 +210,7 @@ void SelfishLB::InsertMigrateInfo() {
 
 void SelfishLB::FinalBarrier() {
   if (_lb_args.debug() > 2)
-    CkPrintf("[%d] My load after LB: %lf\n", CkMyPe(), my_load);
+    CkPrintf("[%d] I have received a total of %d tasks\n", CkMyPe(), migrates_expected);
   ProcessMigrationDecision(msg);
 }
 
