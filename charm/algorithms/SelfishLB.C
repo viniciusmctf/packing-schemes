@@ -28,11 +28,11 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
     CkPrintf("Starting SelfishLB...\n");
   }
 
-  kIterations = 10; cur_iteration = 1;
+  kIterations = _lb_args.lbpacksize(); cur_iteration = 1;
   mig_counts.clear();
   mig_counts = std::vector<int> (CkNumPes(), 0); // Fill mig_counts with 0s
   waiting_messages = 0; migrates_expected = 0;
-  my_load = 0.0;
+  my_load = 0.0; leaving = 0;
   all_tasks.clear(); migrateInfo.clear();
   my_stats = stats;
   int nobjs = my_stats->n_objs;
@@ -44,6 +44,7 @@ void SelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
     if (my_stats->objData[i].wallTime > 0.0001 && my_stats->objData[i].migratable) {
       // task_to_destination_map.emplace({my_id, my_id, i}); // Final destination map
       all_tasks.push_back(std::make_tuple(my_id, my_id, i, my_stats->objData[i].wallTime)); // Vector of temporary migration tokens
+      my_load += my_stats->objData[i].wallTime;
     }
   }
 
@@ -136,10 +137,19 @@ void SelfishLB::ConfirmTasks() {
 }
 
 void SelfishLB::FinishLoadBalance() {
+  migrateInfo.reserve(all_tasks.size());
   for (auto task : all_tasks) {
     if (std::get<0>(task) == CkMyPe() && std::get<1>(task) != CkMyPe()) {
       // This is a leaving task
-      task_to_destination_map.emplace(std::get<1>(task), std::get<2>(task));
+      // task_to_destination_map.emplace(std::get<1>(task), std::get<2>(task));
+      int tid = std::get<2>(task); int destination = std::get<1>(task);
+      MigrateInfo* inf = new MigrateInfo();
+      inf->obj = my_stats->objData[tid].handle;
+      inf->from_pe = CkMyPe();
+      inf->to_pe = destination;
+      migrateInfo.push_back(inf);
+      mig_counts[destination]++;
+      leaving++;
     }
   }
   InsertMigrateInfo();
@@ -158,20 +168,10 @@ bool SelfishLB::DetermineMigrationSuccess(double host_load, double task_load) {
 }
 
 void SelfishLB::InsertMigrateInfo() {
-  for (auto task : task_to_destination_map) {
-    int tid = task.second; int destination = task.first;
-    MigrateInfo* inf = new MigrateInfo();
-    inf->obj = my_stats->objData[tid].handle;
-    inf->from_pe = CkMyPe();
-    inf->to_pe = destination;
-    migrateInfo.push_back(inf);
-    mig_counts[destination]++;
-  }
-
-  msg = new(task_to_destination_map.size(), CkNumPes(), CkNumPes(), 0) LBMigrateMsg;
-  msg->n_moves = task_to_destination_map.size();
-  for (size_t i = 0; i < task_to_destination_map.size(); ++i) {
-      MigrateInfo* inf = (MigrateInfo*) migrateInfo[i];
+  msg = new(leaving, CkNumPes(), CkNumPes(), 0) LBMigrateMsg;
+  msg->n_moves = leaving;
+  for (size_t i = 0; i < leaving; ++i) {
+      MigrateInfo* inf = (MigrateInfo*) migrateInfo.at(i);
       msg->moves[i] = *inf;
       delete inf;
   }
@@ -179,6 +179,8 @@ void SelfishLB::InsertMigrateInfo() {
   for (int dest = 0; dest < CkNumPes(); dest++) {
     thisProxy[dest].InformMigrations(mig_counts[dest]);
   }
+  
+  if (_lb_args.debug() > 3) CkPrintf("[%d] Confirm final barrier commit with load %lf\n", CkMyPe(), my_load);
   contribute(CkCallback(CkReductionTarget(SelfishLB, FinalBarrier), thisProxy));
 }
 

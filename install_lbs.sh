@@ -5,7 +5,7 @@
 # It could add unecessary dependencies to your Charm installation if ran more than once
 
 #Dont forget to redefine your CHARM_DIR
-CHARM_DIR=/home/vinicius/git-ecl/git/charm
+CHARM_DIR=~/git/charm
 TMP_DIR=$CHARM_DIR/tmp
 WORK_DIR=$(pwd)
 LB_LIST="PackDropLB PackStealLB SelfishLB"
