@@ -103,14 +103,14 @@ void PackDropLB::LoadSetup(CkReductionMsg* loadAndChares) {
   avg_load = res[0]/CkNumPes();
   int chares = (int) res[1];
   if (_lb_args.debug() > 2)
-    CkPrintf("[%d] Sanity check, avg load: %lf, chares in lf: %lf, chares int: %d \n",
-      CkMyPe(), avg_load, res[1], chares);
+    // CkPrintf("[%d] Sanity check, avg load: %lf, chares in lf: %lf, chares int: %d \n",
+      // CkMyPe(), avg_load, res[1], chares);
   ChareSetup(chares);
 }
 
 
 void PackDropLB::ChareSetup(int count) {
-    if (_lb_args.debug() > 2) CkPrintf("[%d] Start ChareSetup\n", CkMyPe());
+    if (_lb_args.debug() > 3) CkPrintf("[%d] Start ChareSetup\n", CkMyPe());
     chare_count = count;
     if (_lb_args.lbpacksize() > 0) {
       pack_load = _lb_args.lbpacksize()*avg_load;
@@ -151,7 +151,7 @@ void PackDropLB::ChareSetup(int count) {
         CkCallback cb(CkIndex_PackDropLB::First_Barrier(), thisProxy);
         CkStartQD(cb);
     }
-    if (_lb_args.debug() > 2) CkPrintf("[%d] End ChareSetup\n", CkMyPe());
+    if (_lb_args.debug() > 3) CkPrintf("[%d] End ChareSetup\n", CkMyPe());
     //CkPrintf("[%d] Ending ChareSetup step\n", CkMyPe());
 }
 
@@ -192,15 +192,17 @@ void PackDropLB::CalculateReceivers() {
 
 int PackDropLB::FindReceiver() {
   int rec = 0;
-  //if (_lb_args.debug() > 2) CkPrintf("[%d] Looking for receivers...\n", CkMyPe());
+  if (_lb_args.debug() > 2) CkPrintf("[%d] Looking for receivers...\n", CkMyPe());
   if (receivers.size() < CkNumPes()/4) {
       rec = rand()%CkNumPes();
       while (rec == CkMyPe()) {
+        if (_lb_args.debug() > 2) CkPrintf(".\n", CkMyPe());
           rec = rand()%CkNumPes();
       }
   } else {
       rec = receivers[rand()%receivers.size()];
       while (rec == CkMyPe()) {
+        if (_lb_args.debug() > 2) CkPrintf(".\n", CkMyPe());
           rec = receivers[rand()%receivers.size()];
       }
   }
@@ -208,7 +210,7 @@ int PackDropLB::FindReceiver() {
 }
 
 void PackDropLB::PackSend(int pack_id, int one_time) {
-    if (_lb_args.debug() > 2) CkPrintf("[%d] Start PackSend\n", CkMyPe());
+    if (_lb_args.debug() > 2) CkPrintf("[%d] Start PackSend: %d\n", CkMyPe(), packs.size());
     tries++;
     if (tries >= 4) {
         //if (_lb_args.debug()) CkPrintf("[%d] No receivers found\n", CkMyPe());
@@ -220,6 +222,9 @@ void PackDropLB::PackSend(int pack_id, int one_time) {
     while (idp < packs.size()) {
         if (packs[idp].size() == 0) {
             ++idp;
+            if (acks_needed == 0) {
+              EndStep();
+            }
             continue;
         }
         int rand_rec = FindReceiver();
@@ -234,6 +239,7 @@ void PackDropLB::PackSend(int pack_id, int one_time) {
 }
 
 void PackDropLB::PackAck(int id, int from, int psize, double pload, bool force) {
+  if (_lb_args.debug() > 2) CkPrintf("[%d] In PackAck\n", CkMyPe());
     bool ack = ((my_load + pack_load < avg_load*(1+threshold)) || force);
     if (ack) {
         migrates_expected += psize;
@@ -291,7 +297,8 @@ void PackDropLB::EndStep() {
     if (total_migrates < pack_count && tries < 8) {
         CkPrintf("[%d] Gotta migrate more: %d\n", CkMyPe(), tries);
         PackSend();
-    } else {
+      } else {
+        CkPrintf("[%d] Ending...\n", CkMyPe());
         msg = new(total_migrates, CkNumPes(), CkNumPes(), 0) LBMigrateMsg;
         msg->n_moves = total_migrates;
         for (size_t i = 0; i < total_migrates; ++i) {
