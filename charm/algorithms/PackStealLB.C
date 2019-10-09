@@ -71,7 +71,8 @@ const std::pair<int, double> PackStealLB::CalculateStealingLoad() {
   // Calculate the batch size for this particular application scenario
   // (0.01)*avg_load (1% of the average load)
   // Based on this stealers will know how many packs they can afford to steal.
-  static double size_of_one_pack = 0.02*avg_load;
+  static double _ps = _lb_args.lbpacksize();
+  static double size_of_one_pack = _ps > 0 ? _ps : 0.02*avg_load;
   static int original_num_packs = mod_int((my_load-lb_load)/size_of_one_pack);
   int ret_num_packs = num_packs == 0 ? mod_int((my_load-lb_load)/size_of_one_pack) : num_packs;
   num_packs = ret_num_packs;

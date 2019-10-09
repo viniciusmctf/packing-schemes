@@ -19,14 +19,14 @@ public:
     PackDropLB(CkMigrateMessage *m);
     void LoadSetup(CkReductionMsg* m); // Reduction Target
     void ChareSetup(int count);
-    void PackAck(int pack_id, int from, int psize, bool force);
-    void RecvAck(int pack_id, int to, bool success);
+    void PackAck(int pack_id, int from, int psize, double pload, bool force);
+    void RecvAck(int pack_id, int to, double pload, bool success);
     void EndStep();
     void First_Barrier();
     void GossipLoadInfo(int, int, int, int[], double[]);
     void DoneGossip();
     void DetailsRedux(int migrations);
-    void Final_Barrier();
+    void Final_Barrier(double ml);
 
 private:
    // Private functions
@@ -36,7 +36,7 @@ private:
    void LoadBalance();
    void SendLoadInfo();
    void ShowMigrationDetails();
-   void ForcedPackSend(int pack_id, bool force);
+   void ForcedPackSend(int pack_id, double pload, bool force);
    void PackSend(int pack_id = 0, int one_time = 0);
    void Strategy(const DistBaseLB::LDStats* const stats);
    bool QueryBalanceNow(int step) { return true; };
@@ -80,7 +80,7 @@ private:
    std::vector<double> distribution;
    std::vector<double> loads;
    std::priority_queue<Element, std::deque<Element>> local_tasks;
-   std::unordered_map<int, std::vector<int>> packs;
+   std::map<int, std::vector<int>> packs;
 
    // Charm Attributes
    LBMigrateMsg* msg;

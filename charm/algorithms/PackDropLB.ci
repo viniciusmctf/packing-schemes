@@ -7,13 +7,13 @@ initnode void registerSumTwoIndependentDoubles(void);
 
 group [migratable] PackDropLB : DistBaseLB {
   entry void PackDropLB(const CkLBOptions &);
-  entry [expedited] void PackAck(int pack_id, int from, int psize, bool force);
-  entry [expedited] void RecvAck(int pack_id, int to, bool success);
+  entry void PackAck(int pack_id, int from, int psize, double pload, bool force);
+  entry void RecvAck(int pack_id, int to, double pload, bool success);
   entry void EndStep();
   entry void GossipLoadInfo(int req_hop, int pe, int n, int pe_no[n], double load[n]);
   entry void First_Barrier();
   entry [reductiontarget] void LoadSetup(CkReductionMsg* msg);
-  entry [reductiontarget] void Final_Barrier();
+  entry [reductiontarget] void Final_Barrier(double ml);
   entry [reductiontarget] void DetailsRedux(int migs);
 };
 

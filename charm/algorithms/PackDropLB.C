@@ -68,6 +68,8 @@ void PackDropLB::Strategy(const DistBaseLB::LDStats* const stats) {
     total_migrates = 0;
     acks_needed = 0;
 
+    packs = std::map<int, std::vector<int> >();
+
     kMaxGossipMsgCount = 2 * CmiLog2(CkNumPes());
     kPartialInfoCount = -1;
 
@@ -108,9 +110,14 @@ void PackDropLB::LoadSetup(CkReductionMsg* loadAndChares) {
 
 
 void PackDropLB::ChareSetup(int count) {
+    if (_lb_args.debug() > 2) CkPrintf("[%d] Start ChareSetup\n", CkMyPe());
     chare_count = count;
-    double avg_task_size = (CkNumPes()*avg_load)/chare_count;
-    pack_load = avg_task_size*(2 - CkNumPes()/chare_count);
+    if (_lb_args.lbpacksize() > 0) {
+      pack_load = _lb_args.lbpacksize()*avg_load;
+    } else {
+      double avg_task_size = (CkNumPes()*avg_load)/chare_count;
+      pack_load = avg_task_size*(2 - CkNumPes()/chare_count);
+    }
 
     double ceil = avg_load*(1+threshold);
     double pack_floor = pack_load*(1-threshold);
@@ -119,14 +126,14 @@ void PackDropLB::ChareSetup(int count) {
       double rem_load = ceil - avg_load;
       auto removed_objs = local_work_info.remove_batch_of_load(rem_load);
       int pack_id = 0;
+      packs.emplace(std::make_pair(pack_id, std::vector<int>()));
       // From UpdateWorkMap to our local packing scheme
       for (auto obj : removed_objs) {
         if (_lb_args.debug() > 3) CkPrintf("[%d] Creating Pack(%d), adding task of id <%d>, and load <%.5lf> \n", CkMyPe(), pack_id, obj.sys_index, obj.load);
-        packs[pack_id] = std::vector<int>();
         pack_load_now += obj.load;
         packs[pack_id].push_back(obj.sys_index);
         if (pack_load_now > pack_floor) {
-          packs[++pack_id] = std::vector<int> ();
+          packs.emplace(std::make_pair(++pack_id, std::vector<int>()));
           my_load -= pack_load_now;
           pack_load_now = 0.0;
         }
@@ -144,22 +151,27 @@ void PackDropLB::ChareSetup(int count) {
         CkCallback cb(CkIndex_PackDropLB::First_Barrier(), thisProxy);
         CkStartQD(cb);
     }
+    if (_lb_args.debug() > 2) CkPrintf("[%d] End ChareSetup\n", CkMyPe());
     //CkPrintf("[%d] Ending ChareSetup step\n", CkMyPe());
 }
 
 void PackDropLB::First_Barrier() {
+    if (_lb_args.debug() > 2) CkPrintf("[%d] Start Load Balance\n", CkMyPe());
     LoadBalance();
 }
 
 void PackDropLB::LoadBalance() {
     lb_started = true;
     if (packs.size() == 0) {
-        if (_lb_args.debug() > 0)
-          CkPrintf("[%d] Won't perform migrations, feels done ...\n", CkMyPe());
+        if (_lb_args.debug() > 2)
+          // CkPrintf("[%d] Am underloaded, it's ok ...\n", CkMyPe());
         msg = new(total_migrates,CkNumPes(),CkNumPes(),0) LBMigrateMsg;
         msg->n_moves = total_migrates;
-        contribute(CkCallback(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy));
+        CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
+        contribute(sizeof(double), &my_load, CkReduction::max_double, cb);
         return;
+    } else {
+        if (_lb_args.debug() > 2) CkPrintf("[%d] Am overloaded, time to migrate.\n", CkMyPe());
     }
     underloaded_pe_count = pe_no.size();
     // CalculateCumulateDistribution();
@@ -196,6 +208,7 @@ int PackDropLB::FindReceiver() {
 }
 
 void PackDropLB::PackSend(int pack_id, int one_time) {
+    if (_lb_args.debug() > 2) CkPrintf("[%d] Start PackSend\n", CkMyPe());
     tries++;
     if (tries >= 4) {
         //if (_lb_args.debug()) CkPrintf("[%d] No receivers found\n", CkMyPe());
@@ -211,24 +224,25 @@ void PackDropLB::PackSend(int pack_id, int one_time) {
         }
         int rand_rec = FindReceiver();
         acks_needed++;
-        thisProxy[rand_rec].PackAck(idp, CkMyPe(), packs[idp].size(), false);
+        thisProxy[rand_rec].PackAck(idp, CkMyPe(), packs[idp].size(), pack_load, false);
         if (one_time) {
             break;
         }
         ++idp;
     }
+    // if (_lb_args.debug() > 2) CkPrintf("[%d] End PackSend\n", CkMyPe());
 }
 
-void PackDropLB::PackAck(int id, int from, int psize, bool force) {
+void PackDropLB::PackAck(int id, int from, int psize, double pload, bool force) {
     bool ack = ((my_load + pack_load < avg_load*(1+threshold)) || force);
     if (ack) {
-        migrates_expected+=psize;
-        my_load += pack_load;
+        migrates_expected += psize;
+        my_load += pload;
     }
-    thisProxy[from].RecvAck(id, CkMyPe(), ack);
+    thisProxy[from].RecvAck(id, CkMyPe(), pload, ack);
 }
 
-void PackDropLB::RecvAck(int id, int to, bool success) {
+void PackDropLB::RecvAck(int id, int to, double pload, bool success) {
     if (success) {
         const std::vector<int> this_pack = packs.at(id);
         for (size_t i = 0; i < this_pack.size(); ++i) {
@@ -253,23 +267,24 @@ void PackDropLB::RecvAck(int id, int to, bool success) {
             }
             migrateInfo.clear();
             lb_end = true;
-            contribute(CkCallback(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy));
+            CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
+            contribute(sizeof(double), &my_load, CkReduction::max_double, cb);
         }
     } else {
         acks_needed--;
         if (tries >= 2) {
-            ForcedPackSend(id, true);
+            ForcedPackSend(id, pload, true);
         } else {
-            ForcedPackSend(id, false);
+            ForcedPackSend(id, pload, false);
         }
     }
 }
 
-void PackDropLB::ForcedPackSend(int id, bool force) {
+void PackDropLB::ForcedPackSend(int id, double pload, bool force) {
     int rand_rec = FindReceiver();
     tries++;
     acks_needed++;
-    thisProxy[rand_rec].PackAck(id, CkMyPe(), packs.at(id).size(), force);
+    thisProxy[rand_rec].PackAck(id, CkMyPe(), (int) packs.at(id).size(), pload, force);
 }
 
 void PackDropLB::EndStep() {
@@ -286,11 +301,15 @@ void PackDropLB::EndStep() {
         }
         migrateInfo.clear();
         lb_end = true;
-        contribute(CkCallback(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy));
+        CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
+        contribute(sizeof(double), &my_load, CkReduction::max_double, cb);
     }
 }
 
-void PackDropLB::Final_Barrier() {
+void PackDropLB::Final_Barrier(double max_load) {
+    if (CkMyPe() == 0 && _lb_args.debug()) {
+      CkPrintf("Final makespan: %lf\n", max_load);
+    }
     ProcessMigrationDecision(msg);
 }
 
