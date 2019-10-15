@@ -164,11 +164,12 @@ void PackDropLB::LoadBalance() {
     lb_started = true;
     if (packs.size() == 0) {
         if (_lb_args.debug() > 2)
-          // CkPrintf("[%d] Am underloaded, it's ok ...\n", CkMyPe());
+          CkPrintf("[%d] Am underloaded, it's ok ...\n", CkMyPe());
         msg = new(total_migrates,CkNumPes(),CkNumPes(),0) LBMigrateMsg;
         msg->n_moves = total_migrates;
         CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
         contribute(sizeof(double), &my_load, CkReduction::max_double, cb);
+        if (_lb_args.debug() > 2) CkPrintf("[%d] Contributed for the Final Barrier\n", CkMyPe());
         return;
     } else {
         if (_lb_args.debug() > 2) CkPrintf("[%d] Am overloaded, time to migrate.\n", CkMyPe());
@@ -239,7 +240,7 @@ void PackDropLB::PackSend(int pack_id, int one_time) {
 }
 
 void PackDropLB::PackAck(int id, int from, int psize, double pload, bool force) {
-  if (_lb_args.debug() > 2) CkPrintf("[%d] In PackAck\n", CkMyPe());
+  if (_lb_args.debug() > 2) CkPrintf("[%d] In PackAck [%d][%d][%d]\n", CkMyPe(), id, from, psize);
     bool ack = ((my_load + pack_load < avg_load*(1+threshold)) || force);
     if (ack) {
         migrates_expected += psize;
@@ -250,6 +251,7 @@ void PackDropLB::PackAck(int id, int from, int psize, double pload, bool force) 
 
 void PackDropLB::RecvAck(int id, int to, double pload, bool success) {
     if (success) {
+        if (_lb_args.debug() > 2) CkPrintf("[%d] In RecvAck with success\n", CkMyPe());
         const std::vector<int> this_pack = packs.at(id);
         for (size_t i = 0; i < this_pack.size(); ++i) {
             int task = this_pack.at(i);
@@ -258,9 +260,9 @@ void PackDropLB::RecvAck(int id, int to, double pload, bool success) {
             inf->from_pe = CkMyPe();
             inf->to_pe = to;
             migrateInfo.push_back(inf);
+            total_migrates++;
         }
         packs[id] = std::vector<int>();
-        total_migrates++;
         acks_needed--;
         pack_count--;
         if (acks_needed == 0) {
@@ -275,6 +277,7 @@ void PackDropLB::RecvAck(int id, int to, double pload, bool success) {
             lb_end = true;
             CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
             contribute(sizeof(double), &my_load, CkReduction::max_double, cb);
+            if (_lb_args.debug() > 2) CkPrintf("[%d] Contributed for the Final Barrier\n", CkMyPe());
         }
     } else {
         acks_needed--;
@@ -310,6 +313,7 @@ void PackDropLB::EndStep() {
         lb_end = true;
         CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
         contribute(sizeof(double), &my_load, CkReduction::max_double, cb);
+        if (_lb_args.debug() > 2) CkPrintf("[%d] Contributed for the Final Barrier\n", CkMyPe());
     }
 }
 
