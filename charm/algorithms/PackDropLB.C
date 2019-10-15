@@ -103,8 +103,8 @@ void PackDropLB::LoadSetup(CkReductionMsg* loadAndChares) {
   avg_load = res[0]/CkNumPes();
   int chares = (int) res[1];
   if (_lb_args.debug() > 2)
-    // CkPrintf("[%d] Sanity check, avg load: %lf, chares in lf: %lf, chares int: %d \n",
-      // CkMyPe(), avg_load, res[1], chares);
+    CkPrintf("[%d] Sanity check, avg load: %lf, chares in lf: %lf, chares int: %d \n",
+      CkMyPe(), avg_load, res[1], chares);
   ChareSetup(chares);
 }
 
