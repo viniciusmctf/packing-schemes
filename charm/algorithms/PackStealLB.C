@@ -71,12 +71,14 @@ const std::pair<int, double> PackStealLB::CalculateStealingLoad() {
   // Calculate the batch size for this particular application scenario
   // (0.01)*avg_load (1% of the average load)
   // Based on this stealers will know how many packs they can afford to steal.
-  static double _ps = _lb_args.lbpacksize();
-  static double size_of_one_pack = _ps > 0 ? _ps : 0.02*avg_load;
-  static int original_num_packs = mod_int((my_load-lb_load)/size_of_one_pack);
-  int ret_num_packs = num_packs == 0 ? mod_int((my_load-lb_load)/size_of_one_pack) : num_packs;
-  num_packs = ret_num_packs;
-  return {ret_num_packs, size_of_one_pack};
+  // static double _ps = _lb_args.lbpacksize();
+  static double size_of_one_pack = 0.02*avg_load; //_ps > 0 ? _ps : 0.02*avg_load;
+  // static int original_num_packs = mod_int((my_load-lb_load)/size_of_one_pack);
+  // int ret_num_packs = num_packs == 0 ? mod_int((my_load-ub_load)/size_of_one_pack)+1 : num_packs;
+  pack_load = size_of_one_pack;
+  double delta = my_load-ub_load;
+  remaining_steals = mod_int(delta/pack_load);
+  return {remaining_steals, size_of_one_pack};
 }
 
 int PackStealLB::ChooseRandomReceiver() {
@@ -157,8 +159,8 @@ void PackStealLB::UpdateTotalLoad(int n_tasks, double increased) {
 }
 
 void PackStealLB::StealAttempt(int suggestion) {
-  auto steal_factor = CalculateStealingLoad();
-  int steals = 2;// (current_attempts > 0) ? steal_factor.first : 1;
+  // auto steal_factor = CalculateStealingLoad();
+  int steals = remaining_steals;// (current_attempts > 0) ? steal_factor.first : 1;
   //CkPrintf("[%d] I will attempt %d new steals!\n", CkMyPe(), steal_factor.first);
   if (suggestion == CkMyPe()) {
     suggestion++; suggestion %= CkNumPes();
@@ -169,8 +171,9 @@ void PackStealLB::StealAttempt(int suggestion) {
     double* times_arr;
     VectorizeMap(id_arr, load_arr, times_arr);
     // CkPrintf("[%d] I will attempt a steal on <%d> of load %lf! %d\n", CkMyPe(), victim, steal_factor.second, CkNumPes());
-    thisProxy[suggestion].StealLoad(CkMyPe(), steal_factor.second, n_info, id_arr, load_arr, times_arr, current_attempts);
-    current_attempts++;
+    if (_lb_args.debug() > 2) CkPrintf("[%d] Inside StealAttempt to [%d]\n",CkMyPe(), suggestion);
+    thisProxy[suggestion].StealLoad(CkMyPe(), pack_load, n_info, id_arr, load_arr, times_arr, failed_attempts);
+    remaining_steals--;
   }
   // CkPrintf("[%d] I am underloaded: %lf!\n", CkMyPe(), my_load);
 }
@@ -189,7 +192,8 @@ void PackStealLB::Strategy(const DistBaseLB::LDStats* const stats) {
   // Initialize local variables
   // CkPrintf("[%d] Here my legend starts!\n", CkMyPe());
   current_attempts = 0, pack_count = 0; failed_attempts = 0;
-  total_migrates = 0, num_packs = 0;
+  total_migrates = 0, num_packs = 0; next_victim = CkMyPe();
+  remaining_steals = 0;
   migrates_expected = 0;
   lb_started = false;
   done_pe_list.clear();
@@ -223,7 +227,7 @@ void PackStealLB::AvgLoadReduction(double total_load) {
 
   remote_pe_info = ProcMap{CkMyPe(), CkNumPes()};
   remote_pe_info.emplace_update(CkMyPe(), my_load, CmiWallTimer());
-  if (my_load > ub_load) {
+  if (my_load > avg_load) {
     // CkPrintf("[%d] I am overloaded: %lf!\n", CkMyPe(), my_load);
     DetermineMigratingWork();
     current_attempts = 0;
@@ -231,8 +235,9 @@ void PackStealLB::AvgLoadReduction(double total_load) {
     thisProxy[(CkMyPe()+1)%CkNumPes()].SuggestSteal(CkMyPe(), my_load, CmiWallTimer(), CkMyPe(), 0);
     // CkPrintf("[%d] I have produced %d packs!\n", CkMyPe(), pack_count);
 
-  } else if (my_load < vlb_load) {
+  } else if (my_load < lb_load) {
     has_packs = false;
+    CalculateStealingLoad();
     StealAttempt(ChooseRandomReceiver()); // Increments current_attempts
   } else {
     has_packs = false;
@@ -255,46 +260,38 @@ void PackStealLB::AvgLoadReduction(double total_load) {
 }
 
 void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int ids[], double loads[], double times[], int n_tries) {
-  // CkPrintf("[%d] They <%d> are stealing!!\n", CkMyPe(), thief_id);
+  if (_lb_args.debug() > 2) CkPrintf("[%d] Inside StealLoad from [%d]\n",CkMyPe(), thief_id);
   for (int i = 0; i < n_info; i++) {
     // CkPrintf("<%d, %.4lf, %.4lf>, ", ids[i], loads[i], times[i]);
     remote_pe_info.emplace_update(ids[i], loads[i], times[i]);
   }
   // CkPrintf("[%d] Table updated: comparing %lf X %lf\n", CkMyPe(), my_load, ub_load);
 
-  if (my_load > ub_load && current_attempts < (batch_delimiters.size()-1) ) {
+  if (my_load > ub_load && current_attempts+1 < (batch_delimiters.size()) ) {
     if (!has_packs) { // DEFINE HAS_PACKS
       DetermineMigratingWork();
     }
     bool done_donating = false;
     double sent_load = 0.0;
     int count = 0;
-    while (!done_donating) {
-      double tmp_sent_load = 0.0;
-      int begin_id = batch_delimiters[current_attempts];
-      int end_id = batch_delimiters[++current_attempts]; // Update current_attempts
-      for (int i = begin_id; i < end_id; i++) {
-        AddToMigrationMessage(thief_id, migrate_ids[i]);
-      }
-      for (int i = begin_id; i < end_id; i++) {
-        tmp_sent_load += migrate_loads[i];
-        count++;
-      }
-      my_load -= tmp_sent_load;
-      sent_load += tmp_sent_load;
-      // If a reasonable increment would make sent_load >= than stolen load, stop
-      if ((my_load <= ub_load && sent_load*1.3 >= stolen_load) || current_attempts >= (batch_delimiters.size()-1)) {
-        break; // In practice, the same thing. The boolean is simply more elegant
-        done_donating = true;
-      }
+    double tmp_sent_load = 0.0;
+    int begin_id = batch_delimiters[current_attempts];
+    int end_id = batch_delimiters[++current_attempts]; // Update current_attempts
+    for (int i = begin_id; i < end_id; i++) {
+      AddToMigrationMessage(thief_id, migrate_ids[i]);
     }
+    for (int i = begin_id; i < end_id; i++) {
+      tmp_sent_load += migrate_loads[i];
+      count++;
+    }
+    my_load -= tmp_sent_load;
     int n_info = remote_pe_info.size();
     int* id_arr; double* load_arr;
     double* times_arr;
     VectorizeMap(id_arr, load_arr, times_arr);
     thisProxy[thief_id].GiveLoad(count, sent_load, 0, n_info, id_arr, load_arr, times_arr, CkMyPe());
     total_migrates += count;
-    if (current_attempts >= batch_delimiters.size()-1) {
+    if (current_attempts+1 >= batch_delimiters.size()) {
       has_packs = false;
     }
     if (max_steal_attempts-current_attempts <= 0 && !finished) {
@@ -326,12 +323,12 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
       VectorizeMap(id_arr, load_arr, times_arr); //CkPrintf("[%d] After Vectorize call:\n", CkMyPe());
       if (donations < 1) {
         return;
-        int victim = remote_pe_info.last().first;
-        if (victim == CkMyPe()) {
-          remote_pe_info.last().first;
-        }
-        thisProxy[thief_id].SuggestSteal(CkMyPe(), my_load, CmiWallTimer(), victim, 2);
-        return;
+        // int victim = remote_pe_info.last().first;
+        // if (victim == CkMyPe()) {
+        //   remote_pe_info.last().first;
+        // }
+        // thisProxy[thief_id].SuggestSteal(CkMyPe(), my_load, CmiWallTimer(), victim, 2);
+        // return;
       }
       thisProxy[thief_id].GiveLoad(donations, accum, 1, n_info, id_arr, load_arr, times_arr, CkMyPe());
       // steal_load -= accum;
@@ -368,16 +365,20 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
 void PackStealLB::SuggestSteal(int from_id, double from_load, double from_time, int suggested_victim, int count) {
   //CkPrintf("[%d] Educated Steal hint from %d to %d\n", CkMyPe(), from_id, suggested_victim);
   remote_pe_info.emplace_update(from_id, from_load, from_time);
-  if (finished || count > CkNumPes()/4 || from_id == CkMyPe()) {
+  if (finished || from_id == CkMyPe()) {
     return;
-  } else if (my_load < lb_load) {
-    StealAttempt(suggested_victim);
+  } else if (my_load < lb_load && count > 0) { // Thief case
+    next_victim = suggested_victim;
+    remaining_steals++;
+    failed_attempts++;
+    if (failed_attempts > CkNumPes()) return;
+    StealAttempt(next_victim);
   } else {
     int thief = remote_pe_info.first().first;
     if (thief == CkMyPe()) {
       return;
     }
-    thisProxy[thief].SuggestSteal(CkMyPe(), my_load, CmiWallTimer(), suggested_victim, ++count);
+    thisProxy[thief].SuggestSteal(CkMyPe(), my_load, CmiWallTimer(), suggested_victim, 0);
   }
 }
 
@@ -385,7 +386,6 @@ void PackStealLB::GiveLoad(int n_tasks, double total_load, int seek, int n_info,
   //CkPrintf("[%d] I am receiving load %lf from %d New info: %d, Ntasks: %d\n", CkMyPe(), total_load, from, n_info, n_tasks);
   UpdateTotalLoad(n_tasks, total_load);
   migrates_expected += n_tasks;
-  current_attempts--;
   for (int i = 0; i < n_info; i++) {
     // CkPrintf("<%d, %.4lf, %.4lf>, ", ids[i], loads[i], times[i]);
     remote_pe_info.emplace_update(ids[i], loads[i], times[i]);
@@ -400,13 +400,17 @@ void PackStealLB::GiveLoad(int n_tasks, double total_load, int seek, int n_info,
 
   if (seek == 1) {
     failed_attempts++;
+    remaining_steals++;
+    if (failed_attempts > CkNumPes()) return;
   }
 
   if (my_load < lb_load && seek != 1 && failed_attempts < CkNumPes()/2) {
     // CkPrintf("[%d] Can't stop failing...\n", CkMyPe());
     failed_attempts++;
+    remaining_steals++;
     failed_steals.insert(from);
-    int suggestion = ChooseRandomReceiver();
+    if (failed_attempts > CkNumPes()) return;
+    int suggestion = next_victim == CkMyPe() ? ChooseRandomReceiver() : next_victim;
     StealAttempt(suggestion);
   }
 

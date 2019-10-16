@@ -57,10 +57,12 @@ private:
     void PrintFinalSteps();
 
     double avg_load, lb_load, ub_load; // Average, lower and upper bound system loads
-    double my_load;
+    double my_load; double pack_load;
     int max_steal_attempts;
     int failed_attempts;
     int current_attempts;
+    int next_victim;
+    int remaining_steals;
     int temp_neg_tasks = 0;
 
     bool finished, really_finished, has_packs, lb_started;
