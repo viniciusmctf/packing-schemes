@@ -448,11 +448,8 @@ void PackStealLB::FinishLoadBalance() {
  **/
 
 void PackStealLB::PrintFinalSteps() {
-  if (_lb_args.debug() > 1) {
-    const char* step = really_finished ? "finish" : "start";
-    CkPrintf("[%d] CSV> pe_load; %s; %d; %lf;\n", CkMyPe(), step, CkMyPe(), my_load); // start/finish; Me; MyLoad
-    CkPrintf("[%d] CSV> num_tasks; %d; %d\n", CkMyPe(), CkMyPe(), local_work_info.size()); // Me; MyTasks
-    CkPrintf("[%d] CSV> migs; %d; %d; %d\n", migrates_expected, total_migrates); // Me; RecvTasks; MigTasks
+  if (_lb_args.debug()) {
+    CkPrintf("[%d] Receiving %d, Final load %lf;\n", CkMyPe(), migrates_expected, my_load); // start/finish; Me; MyLoad
   }
 }
 

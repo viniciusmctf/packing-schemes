@@ -26,7 +26,7 @@ public:
     void GossipLoadInfo(int, int, int, int[], double[]);
     void DoneGossip();
     void DetailsRedux(int migrations);
-    void Final_Barrier(double ml);
+    void Final_Barrier(CkReductionMsg* m);
 
 private:
    // Private functions
