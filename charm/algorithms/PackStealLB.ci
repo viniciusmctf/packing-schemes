@@ -12,6 +12,8 @@ initnode void lbinit(void);
     entry void SuggestSteal(int from, double f_load, double f_time, int victim, int saturation_count);
     entry void GiveLoad(int ntasks, double total_load, int seeking, int n_info, int id_arr[n_info], double load_arr[n_info], double times_arr[n_info], int from);
     entry void IsDone(int n_info, int done_pes[n_info]);
+    entry void MakespanReport(double makespan);
+    entry void MigrationReport(int migs);
   };
 
 };

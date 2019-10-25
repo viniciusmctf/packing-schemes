@@ -183,6 +183,21 @@ void PackStealLB::StealAttempt(int suggestion) {
 void PackStealLB::IsDone(int n_info, int done_pes[]) {
 }
 
+void PackStealLB::MakespanReport(double max_load) {
+  makespan_report = makespan_report > max_load ? makespan_report : max_load;
+  if (++makespan_report_count >= CkNumPes()) {
+    CkPrintf("Final MakespanReport: %lf\n", makespan_report);
+  }
+}
+
+void PackStealLB::MigrationReport(int migs) {
+  migration_report += migs;
+  if (++migration_report_count >= CkNumPes()) {
+    CkPrintf("Final MakespanReport: %d\n", migration_report);
+  }
+}
+
+
  /***
    * Here end the auxiliary methods
   **/
@@ -195,8 +210,8 @@ void PackStealLB::Strategy(const DistBaseLB::LDStats* const stats) {
   // CkPrintf("[%d] Here my legend starts!\n", CkMyPe());
   current_attempts = 0, pack_count = 0; failed_attempts = 0;
   total_migrates = 0, num_packs = 0; next_victim = CkMyPe();
-  remaining_steals = 0;
-  migrates_expected = 0;
+  remaining_steals = 0; migration_report_count = 0; makespan_report_count = 0;
+  migrates_expected = 0; migration_report = 0; makespan_report = 0;
   lb_started = false;
   done_pe_list.clear();
   failed_steals.clear();
@@ -437,6 +452,10 @@ void PackStealLB::EndBarrier() {
   migrateInfo.clear();
   //CkPrintf("[%d] Finishing! Registered a total of %d migrations, received a total of %d\n", CkMyPe(), total_migrates, migrates_expected);
   PrintFinalSteps();
+  if (_lb_args.debug()) {
+    thisProxy[0].MakespanReport(my_load);
+    thisProxy[0].MigrationReport(total_migrates);
+  }
   ProcessMigrationDecision(msg);
 
   // contribute(CkCallback(CkReductionTarget(PackStealLB, FinishLoadBalance),thisProxy));
@@ -451,7 +470,7 @@ void PackStealLB::FinishLoadBalance() {
  **/
 
 void PackStealLB::PrintFinalSteps() {
-  if (_lb_args.debug()) {
+  if (_lb_args.debug() > 1) {
     CkPrintf("[%d] Receiving %d, Final load %lf;\n", CkMyPe(), migrates_expected, my_load); // start/finish; Me; MyLoad
   }
 }

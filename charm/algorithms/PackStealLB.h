@@ -36,6 +36,8 @@ public:
     void StealLoad(int thief_id, double stolen_load, int n_info, int ids[], double loads[], double times[], int n_tries);
     void GiveLoad(int n_tasks, double total_load, int seeking, int n_info, int id_arr[], double load_arr[], double times_arr[], int from);
     void EndBarrier();
+    void MakespanReport(double);
+    void MigrationReport(int);
     void SuggestSteal(int, double, double, int, int);
     void FinishLoadBalance();
     void IsDone(int n_info, int done_pes[]);
@@ -66,6 +68,8 @@ private:
     int temp_neg_tasks = 0;
 
     bool finished, really_finished, has_packs, lb_started;
+    double makespan_report; int migration_report;
+    int makespan_report_count, migration_report_count;
 
     int pack_count;
     // Ex: 0, 4, 6. (Two batches, from 0-3 and 4-6 positions in the other 2 arrays).
