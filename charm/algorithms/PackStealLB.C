@@ -48,9 +48,11 @@ void PackStealLB::InitWorkMap() {
   std::vector<std::pair<int,double>> map;
   map.reserve(nobjs);
   migrateInfo = {};
+  my_load = 0.0;
   for (int i = 0; i < nobjs; ++i) {
     if (my_stats->objData[i].migratable && my_stats->objData[i].wallTime > 0.0001) {
       map.emplace_back(i, my_stats->objData[i].wallTime);
+      my_load += my_stats->objData[i].wallTime;
       // CkPrintf("[%d] Obj <%d> processed, <%lf>\n", CkMyPe(), i, my_stats->objData[i].wallTime);
     }
   }
@@ -128,7 +130,7 @@ void PackStealLB::DetermineMigratingWork() {
   migrate_loads = {};
   batch_delimiters = {0};
 
-  double total_removed_load = local_work_info.calculate_total_load() - lb_load;
+  double total_removed_load = my_load - lb_load;
   auto removed_objs = local_work_info.remove_batch_of_load(total_removed_load);
   auto steal_factor = CalculateStealingLoad();
   int n_steals = steal_factor.first;
@@ -207,12 +209,12 @@ void PackStealLB::Strategy(const DistBaseLB::LDStats* const stats) {
   my_stats = stats;
   // Initialize work map
   InitWorkMap(); //local_work_info will have data from this point on.
-  my_load = local_work_info.calculate_total_load();
+  // my_load = local_work_info.calculate_total_load();
   // Start reduction on average load
-  CkCallback cb(CkReductionTarget(PackStealLB, AvgLoadReduction), thisProxy);
-  double l = my_load;
   PrintFinalSteps();
+  double l = my_load;
   lb_started = true;
+  CkCallback cb(CkReductionTarget(PackStealLB, AvgLoadReduction), thisProxy);
   contribute(sizeof(double), &l, CkReduction::sum_double, cb);
 
 }
@@ -246,6 +248,7 @@ void PackStealLB::AvgLoadReduction(double total_load) {
 
   // Start QD
   if (CkMyPe() == 0) {
+    CkPrintf("Average Load: %lf\n", avg_load);
     CkCallback cb(CkIndex_PackStealLB::EndBarrier(), thisProxy);
     CkStartQD(cb);
   }
@@ -289,7 +292,7 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
     int* id_arr; double* load_arr;
     double* times_arr;
     VectorizeMap(id_arr, load_arr, times_arr);
-    thisProxy[thief_id].GiveLoad(count, sent_load, 0, n_info, id_arr, load_arr, times_arr, CkMyPe());
+    thisProxy[thief_id].GiveLoad(count, tmp_sent_load, 0, n_info, id_arr, load_arr, times_arr, CkMyPe());
     total_migrates += count;
     if (current_attempts+1 >= batch_delimiters.size()) {
       has_packs = false;
@@ -330,11 +333,11 @@ void PackStealLB::StealLoad(int thief_id, double stolen_load, int n_info, int id
         // thisProxy[thief_id].SuggestSteal(CkMyPe(), my_load, CmiWallTimer(), victim, 2);
         // return;
       }
-      thisProxy[thief_id].GiveLoad(donations, accum, 1, n_info, id_arr, load_arr, times_arr, CkMyPe());
-      // steal_load -= accum;
       my_load -= accum;
       total_migrates += donations;
       remote_pe_info.emplace_update(CkMyPe(), my_load, CmiWallTimer());
+      thisProxy[thief_id].GiveLoad(donations, accum, 1, n_info, id_arr, load_arr, times_arr, CkMyPe());
+      // steal_load -= accum;
     } else {
       int victim = remote_pe_info.last().first;
       if (victim == CkMyPe()) {

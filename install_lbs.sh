@@ -17,7 +17,7 @@ set -x
 cp $WORK_DIR/schemes/OrderedElement* $TMP_DIR/
 cp $WORK_DIR/schemes/Update* $TMP_DIR/ # Copies the dependencies
 cp $WORK_DIR/charm/algorithms/* $TMP_DIR/ # Copies the LB algorithms
-cp $WORK_DIR/charm/mods/* $TMP_DIR/ # Copies the LB algorithms
+cp $WORK_DIR/charm/mods/* $TMP_DIR/ # Copies the Charm mods ***THIS WILL HARSHLY INCREASE COMPILE TIME. IF YOU'VE ALREADY UPDATED THE MODS ONCE, YOU MAY WANT TO COMMENT THIS LINE.
 #cp $WORK_DIR/charm/* $TMP_DIR/ # Copies the LB algorithms
 
 

@@ -1,4 +1,4 @@
-a/***
+/***
   * Author: Vinicius Freitas
   * contact: vinicius.mct.freitas@gmail.com OR vinicius.mctf@grad.ufsc.br
   * Produced @ ECL - UFSC
@@ -17,14 +17,14 @@ CreateLBFunc_Def(PackDropLB, "Pack-based distributed load balancer");
 CkReductionMsg* sumTwoIndependentDoubles(int n_msg, CkReductionMsg** msgs) {
   //Sum starts off at zero
   double ret[3]= {0,0,0};
-  for (int i=0;i<n_msg;i++) {
+  for (int i = 0; i < n_msg; i++) {
     //Sanity check:
     CkAssert(msgs[i]->getSize()==3*sizeof(double));
     //Extract this message's data
     double *m=(double *)msgs[i]->getData();
     ret[0]+=m[0];
     ret[1]+=m[1];
-    ret[2]= ret[2] > m[0] ? ret[2] : m[0];
+    ret[2]=((ret[2] > m[0]) ? ret[2] : m[0]);
   }
   return CkReductionMsg::buildNew(3*sizeof(double),ret);
 }
@@ -81,19 +81,22 @@ void PackDropLB::Strategy(const DistBaseLB::LDStats* const stats) {
     int nobjs = my_stats->n_objs;
     std::vector<std::pair<int,double>> map;
     map.reserve(nobjs);
+    my_load = 0.0;
     migrateInfo = {};
     for (int i = 0; i < nobjs; ++i) {
       if (my_stats->objData[i].migratable && my_stats->objData[i].wallTime > 0.0001) {
         map.emplace_back(i, my_stats->objData[i].wallTime);
+        my_load += my_stats->objData[i].wallTime;
       }
     }
     local_work_info = WorkMap(map);
     migrateInfo.reserve(nobjs);
 
-    my_load = local_work_info.calculate_total_load();
+    // my_load = local_work_info.calculate_total_load();
     double l = my_load;
+    double ll = 0.8*my_load;
     double chares = (double) my_stats->n_objs;
-    double data[3] = {l, chares, l};
+    double data[3] = {l, chares, ll};
 
     CkCallback cb(CkReductionTarget(PackDropLB, LoadSetup), thisProxy);
     contribute(3*sizeof(double), (void*) data, sumTwoIndependentDoublesType, cb);
@@ -101,7 +104,8 @@ void PackDropLB::Strategy(const DistBaseLB::LDStats* const stats) {
 
 void PackDropLB::LoadSetup(CkReductionMsg* loadAndChares) {
   double* res = (double*) loadAndChares->getData();
-  avg_load = res[0]/CkNumPes();
+  avg_load = res[0]/((double) CkNumPes());
+  double mkspan = (double) res[2];
   int chares = (int) res[1];
   if (_lb_args.debug() > 2){
     CkPrintf("[%d] Sanity check, avg load: %lf, chares in lf: %lf, chares int: %d \n",
@@ -109,8 +113,9 @@ void PackDropLB::LoadSetup(CkReductionMsg* loadAndChares) {
   }
 
   if (_lb_args.debug() && CkMyPe() == 0) {
-    CkPrintf("Initial makespan: %lf\n", res[2]);
-    CkPrintf("Initial imbalance: %lf\n", res[2]/avg_load);
+    CkPrintf("Average load: %lf\n", avg_load);
+    CkPrintf("Initial makespan: %lf\n", mkspan);
+    CkPrintf("Initial imbalance: %lf\n", mkspan/(double) avg_load);
   }
   ChareSetup(chares);
 }
@@ -178,7 +183,8 @@ void PackDropLB::LoadBalance() {
         msg->n_moves = total_migrates;
 
         double migs = (double) total_migrates;
-        double data[3] = {my_load, migs, my_load};
+        double l = my_load; double ll = my_load;
+        double data[3] = {l, migs, ll};
         CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
         contribute(3*sizeof(double), (void*) data, sumTwoIndependentDoublesType, cb);
 
@@ -290,7 +296,8 @@ void PackDropLB::RecvAck(int id, int to, double pload, bool success) {
             lb_end = true;
 
             double migs = (double) total_migrates;
-            double data[3] = {my_load, migs, my_load};
+            double l = my_load; double ll = my_load;
+            double data[3] = {l, migs, ll};
             CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
             contribute(3*sizeof(double), (void*) data, sumTwoIndependentDoublesType, cb);
             if (_lb_args.debug() > 2) CkPrintf("[%d] Contributed for the Final Barrier\n", CkMyPe());
@@ -329,7 +336,8 @@ void PackDropLB::EndStep() {
         lb_end = true;
 
         double migs= (double) total_migrates;
-        double data[3] = {my_load, migs, my_load};
+        double l = my_load; double ll = my_load;
+        double data[3] = {l, migs, ll};
         CkCallback cb(CkReductionTarget(PackDropLB, Final_Barrier), thisProxy);
         contribute(3*sizeof(double), (void*) data, sumTwoIndependentDoublesType, cb);
         if (_lb_args.debug() > 2) CkPrintf("[%d] Contributed for the Final Barrier\n", CkMyPe());
@@ -338,12 +346,12 @@ void PackDropLB::EndStep() {
 
 void PackDropLB::Final_Barrier(CkReductionMsg* avgMigsMaxLoad) {
     double* res = (double*) avgMigsMaxLoad->getData();
-    avg_load = res[0]/CkNumPes();
     int migs = (int) res[1];
     double max_load = res[2];
     if (CkMyPe() == 0 && _lb_args.debug()) {
       CkPrintf("Final makespan: %lf\n", max_load);
       CkPrintf("Final imbalance: %lf\n", max_load/avg_load);
+      CkPrintf("Final avgCalcLoad: %lf\n", avg_load);
       CkPrintf("Total migrations: %d\n", migs);
     }
     ProcessMigrationDecision(msg);
