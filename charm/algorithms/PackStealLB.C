@@ -183,17 +183,26 @@ void PackStealLB::StealAttempt(int suggestion) {
 void PackStealLB::IsDone(int n_info, int done_pes[]) {
 }
 
-void PackStealLB::MakespanReport(double max_load) {
+void PackStealLB::MakespanReport(double max_load, int mod) {
   makespan_report = makespan_report > max_load ? makespan_report : max_load;
-  if (++makespan_report_count >= CkNumPes()) {
-    CkPrintf("Final MakespanReport: %lf\n", makespan_report);
+  if (!mod) {
+    if (++makespan_report_count >= CkNumPes()) {
+      CkPrintf("Initial MakespanReport: %lf\n", makespan_report);
+      makespan_report = 0.0;
+      makespan_report_count = 0;
+    }
+  } else {
+    if (++makespan_report_count >= CkNumPes()) {
+      CkPrintf("Final MakespanReport: %lf\n", makespan_report);
+      CkPrintf("Final LoadImbalance: %lf\n", makespan_report/avg_load);
+    }
   }
 }
 
-void PackStealLB::MigrationReport(int migs) {
+void PackStealLB::MigrationReport(int migs, int mod) {
   migration_report += migs;
   if (++migration_report_count >= CkNumPes()) {
-    CkPrintf("Final MakespanReport: %d\n", migration_report);
+    CkPrintf("Final MigrationReport: %d\n", migration_report);
   }
 }
 
@@ -229,6 +238,9 @@ void PackStealLB::Strategy(const DistBaseLB::LDStats* const stats) {
   PrintFinalSteps();
   double l = my_load;
   lb_started = true;
+  if (_lb_args.debug()) {
+    thisProxy[0].MakespanReport(my_load, 0);
+  }
   CkCallback cb(CkReductionTarget(PackStealLB, AvgLoadReduction), thisProxy);
   contribute(sizeof(double), &l, CkReduction::sum_double, cb);
 
@@ -453,8 +465,8 @@ void PackStealLB::EndBarrier() {
   //CkPrintf("[%d] Finishing! Registered a total of %d migrations, received a total of %d\n", CkMyPe(), total_migrates, migrates_expected);
   PrintFinalSteps();
   if (_lb_args.debug()) {
-    thisProxy[0].MakespanReport(my_load);
-    thisProxy[0].MigrationReport(total_migrates);
+    thisProxy[0].MakespanReport(my_load, 1);
+    thisProxy[0].MigrationReport(total_migrates, 1);
   }
   ProcessMigrationDecision(msg);
 

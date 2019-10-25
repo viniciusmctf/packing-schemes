@@ -36,8 +36,8 @@ public:
     void StealLoad(int thief_id, double stolen_load, int n_info, int ids[], double loads[], double times[], int n_tries);
     void GiveLoad(int n_tasks, double total_load, int seeking, int n_info, int id_arr[], double load_arr[], double times_arr[], int from);
     void EndBarrier();
-    void MakespanReport(double);
-    void MigrationReport(int);
+    void MakespanReport(double, int);
+    void MigrationReport(int, int);
     void SuggestSteal(int, double, double, int, int);
     void FinishLoadBalance();
     void IsDone(int n_info, int done_pes[]);
