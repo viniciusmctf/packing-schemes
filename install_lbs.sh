@@ -8,14 +8,15 @@
 CHARM_DIR=~/git/charm
 TMP_DIR=$CHARM_DIR/tmp
 WORK_DIR=$(pwd)
-LB_LIST="PackDropLB PackStealLB SelfishLB"
-INC_LIST="UpdateProcMap.h UpdateWorkMap.h"
-DEPS_LIST="UpdateProcMap.o UpdateWorkMap.o"
+LB_LIST="PackDropLB PackStealLB"
+INC_LIST="UpdateProcMap.h NaivePack.h UpdateWorkMap.h"
+DEPS_LIST="UpdateProcMap.o NaivePack.o UpdateWorkMap.o"
 
 set -x
 # This copies the files from pwd to the charm tmp dir:
 cp $WORK_DIR/schemes/OrderedElement* $TMP_DIR/
 cp $WORK_DIR/schemes/Update* $TMP_DIR/ # Copies the dependencies
+cp $WORK_DIR/schemes/NaivePack.* $TMP_DIR/ # Copies the dependencies
 cp $WORK_DIR/charm/algorithms/* $TMP_DIR/ # Copies the LB algorithms
 cp $WORK_DIR/charm/mods/* $TMP_DIR/ # Copies the Charm mods ***THIS WILL HARSHLY INCREASE COMPILE TIME. IF YOU'VE ALREADY UPDATED THE MODS ONCE, YOU MAY WANT TO COMMENT THIS LINE.
 #cp $WORK_DIR/charm/* $TMP_DIR/ # Copies the LB algorithms
