@@ -1,0 +1,6 @@
+Contact: github.com/viniciusmctf/
+
+This release candidate was made to work with Charm++ v6.9.0-rc3, unmodified.
+Since we perform modifications to the Charm++ LBDataBase to allow new parameters in our load balancers, it is important that this is respected.
+
+Future versions may conform with Charm++ standards for added LB parameters.
