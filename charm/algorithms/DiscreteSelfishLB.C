@@ -7,6 +7,30 @@ void __this_iteration_load(int it, const char* string, double makespan) {
   }
 }
 
+double calc_pack_load(double avg_m, double max_j) {
+
+}
+
+CkReductionMsg* sum_max_double(int n_msg, CkReductionMsg** msgs) {
+  //Sum starts off at zero
+  double ret[2]= {0,0};
+  for (int i = 0; i < n_msg; i++) {
+    //Sanity check:
+    CkAssert(msgs[i]->getSize()==2*sizeof(double));
+    //Extract this message's data
+    double *m=(double *)msgs[i]->getData();
+    ret[0]+=m[0];
+    ret[1]=((ret[1] > m[1]) ? ret[1] : m[1]);
+  }
+  return CkReductionMsg::buildNew(2*sizeof(double),ret);
+}
+
+/*global*/ CkReduction::reducerType sum_max_doubleType;
+/*initnode*/ void registerSum_max_double(void)
+{
+  sum_max_doubleType = CkReduction::addReducer(sum_max_double);
+}
+
 CreateLBFunc_Def(DiscreteSelfishLB, "Greedy Selfish Task Reallocation");
 
 DiscreteSelfishLB::DiscreteSelfishLB(CkMigrateMessage *m) : CBase_DiscreteSelfishLB(m) {
@@ -43,20 +67,41 @@ void DiscreteSelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
   all_tasks.reserve(2*nobjs);
   task_to_destination_map.clear();
   int my_id = CkMyPe();
+  double max_task = 0.0;
 
   for (int i = 0; i < nobjs; ++i) {
-    if (my_stats->objData[i].wallTime > 0.0001 && my_stats->objData[i].migratable) {
+    double task_load = my_stats->objData[i].wallTime;
+    if (task_load > 0.0001 && my_stats->objData[i].migratable) {
       // task_to_destination_map.emplace({my_id, my_id, i}); // Final destination map
-      all_tasks.push_back(std::make_tuple(my_id, my_id, i, my_stats->objData[i].wallTime)); // Vector of temporary migration tokens
+      all_tasks.push_back(std::make_tuple(my_id, my_id, i, task_load)); // Vector of temporary migration tokens
+      max_task = (max_task > task_load) ? max_task : task_load;
       my_load += my_stats->objData[i].wallTime;
     }
   }
+
 
   if (_lb_args.debug() > 1) {
     CkPrintf("%d, Load at Start: %lf\n", CkMyPe(), my_load);
   }
 
+  // CalculateMigrations();
+  double data[2] = {my_load, max_task};
+  CkCallback cb = CkCallback(CkReductionTarget(DiscreteSelfishLB, LoadReduction), thisProxy);
+  contribute(2*sizeof(double), (void*) data, sum_max_doubleType, cb);
+}
+
+void DiscreteSelfishLB::LoadReduction(CkReductionMsg* msg) {
+  double* res = (double*) msg->getData();
+  avg_load = res[0]/(double)CkNumPes();
+  double max_task = res[1];
+  double pack_load = calc_pack_load(avg_load, max_task);
+  int pack_count = my_load/pack_load + 1;
+  CreatePacks(pack_count);
   CalculateMigrations();
+}
+
+void DiscreteSelfishLB::CreatePacks(int n_packs) {
+  
 }
 
 void DiscreteSelfishLB::CalculateMigrations() {

@@ -15,6 +15,7 @@ void CreateDiscreteSelfishLB();
 
 class DiscreteSelfishLB : public CBase_DiscreteSelfishLB {
   using pack_global_id_t = std::tuple<int, int, int, double>; // source, current, src_id, load
+  using task_global_id_t = std::tuple<int, int, int, double>; // source, current, src_id, load
 public:
     DiscreteSelfishLB(const CkLBOptions&);
     DiscreteSelfishLB(CkMigrateMessage *m);
@@ -42,9 +43,10 @@ private:
    // Atributes
    std::vector<MigrateInfo*> migrateInfo;
    std::map<int, int> task_to_destination_map;
+   std::vector< task_global_id_t > all_tasks;
    std::vector< pack_global_id_t > all_packs;
    std::vector<int> mig_counts;
-   double my_load;
+   double my_load, avg_load;
    int waiting_messages, leaving, cur_iteration;
 
   // Random Attributes
