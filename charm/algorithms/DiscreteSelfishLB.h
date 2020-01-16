@@ -19,7 +19,7 @@ class DiscreteSelfishLB : public CBase_DiscreteSelfishLB {
 public:
     DiscreteSelfishLB(const CkLBOptions&);
     DiscreteSelfishLB(CkMigrateMessage *m);
-    void LoadReduction(double x); // Reduction target to determine pack size
+    void LoadReduction(CkReductionMsg*); // Reduction target to determine pack size
     void ReceiveTask(int host_id, double host_load, int task_id, double task_load, int arr_position);
     void ConfirmRecv(bool recv, int who, int arr_position);
     void MoveTasks(int who, int msg_size,int task_id[], int destination[]);
@@ -45,6 +45,8 @@ private:
    std::map<int, int> task_to_destination_map;
    std::vector< task_global_id_t > all_tasks;
    std::vector< pack_global_id_t > all_packs;
+   std::vector< NaivePack > local_packs;
+   std::vector< NaiveWorkUnit > ordered_tasks;
    std::vector<int> mig_counts;
    double my_load, avg_load;
    int waiting_messages, leaving, cur_iteration;

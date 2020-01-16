@@ -1,24 +1,5 @@
 #include "NaivePack.h"
-
-bool NaiveWorkUnit::operator>(const NaiveWorkUnit& rhs) {
-  return load > rhs.load;
-}
-
-bool NaiveWorkUnit::operator<(const NaiveWorkUnit& rhs) {
-  return load < rhs.load;
-}
-
-bool NaiveWorkUnit::operator==(const NaiveWorkUnit& rhs) {
-  return id == rhs.id;
-}
-
-bool NaiveWorkUnit::operator!=(const NaiveWorkUnit& rhs) {
-  return id != rhs.id;
-}
-
-double NaiveWorkUnit::operator+(const NaiveWorkUnit& rhs) {
-  return get_load() + rhs.get_load();
-}
+#include <cstdio>
 
 std::vector<NaiveWorkUnit> NaivePack::copy_and_destroy() {
     std::vector<NaiveWorkUnit> retval = {};
@@ -28,16 +9,27 @@ std::vector<NaiveWorkUnit> NaivePack::copy_and_destroy() {
     return retval;
 }
 
-bool NaivePack::operator>(const double& rhs){
+bool NaivePack::operator>(double rhs) const {
     return load() > rhs;
 }
 
-bool NaivePack::operator<(const double& rhs){
+bool NaivePack::operator<(double rhs) const {
     return load() < rhs;
 }
 
+bool NaivePack::operator>(NaivePack rhs) const {
+  return load() > rhs.load();
+}
+
+bool NaivePack::operator<(NaivePack rhs) const {
+  return load() < rhs.load();
+}
+
 NaivePack::NaivePack(std::initializer_list<NaiveWorkUnit> tasks) : tasks(tasks) {
-    total_load = std::accumulate(tasks.begin(), tasks.end(), 0.0);
+    total_load = 0.0;
+    for (auto task : tasks) {
+      total_load += task.get_load();
+    }
 }
 
 std::vector<int> const NaivePack::get_ids() {
@@ -49,8 +41,10 @@ std::vector<int> const NaivePack::get_ids() {
 }
 
 void NaivePack::add(NaiveWorkUnit t) {
-    if (!tasks.count(t)) {
-        tasks.insert(t);
-        total_load += t.get_load();
-    }
+  printf("I say goodbye\n");
+  tasks.push_back(t);
+  printf("You say\n");
+  total_load += t.get_load();
+  printf("Hello\n");
+  return;
 }

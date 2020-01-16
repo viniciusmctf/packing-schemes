@@ -14,51 +14,43 @@ class NaiveWorkUnit {
 public:
     NaiveWorkUnit() : id(-1), load(0.0) {}
     NaiveWorkUnit(int id, double load) : id(id), load(load) {}
-    ~NaiveWorkUnit() = default;
+    ~NaiveWorkUnit() {}
     double get_load() const { return load; }
     int get_id() const { return id; }
-    bool operator>(const NaiveWorkUnit& rhs) {
-        return load > rhs.load;
-    } // Used to sort, compares load
-    bool operator<(const NaiveWorkUnit& rhs) {
-        return load < rhs.load;
-    } // Used to sort, compares load
-    bool operator==(const NaiveWorkUnit& rhs) {
+    bool operator==(const NaiveWorkUnit& rhs) const {
         return id == rhs.id;
     } // Used to check, compares id
-    bool operator!=(const NaiveWorkUnit& rhs) {
+    bool operator!=(const NaiveWorkUnit& rhs) const {
         return id != rhs.id;
     } // Used to check, compares id
-    double operator+(const NaiveWorkUnit& rhs) {
+    double operator+(const NaiveWorkUnit& rhs) const {
         return load + rhs.load;
+    }
+    double operator+(double rhs) const {
+        return load + rhs;
+    }
+    bool operator<(NaiveWorkUnit rhs) const {
+        return get_load() < rhs.get_load();
+    }
+
+    bool operator>(NaiveWorkUnit rhs) const {
+        return get_load() > rhs.get_load();
     }
 protected:
     int id;
     double load;
 };
 
-double operator+(const double& lhs, const NaiveWorkUnit& rhs) {
-    return lhs + rhs.get_load();
-};
-
-bool operator<(const NaiveWorkUnit lhs, const NaiveWorkUnit rhs) {
-    return lhs.get_load() < rhs.get_load();
-}
-
-bool operator>(const NaiveWorkUnit lhs, const NaiveWorkUnit rhs) {
-    return lhs.get_load() > rhs.get_load();
-}
 
 class NaivePack {
 public:
-    NaivePack() = default;
+    NaivePack() { tasks = {}; tasks.reserve(10); }
     NaivePack(std::initializer_list<NaiveWorkUnit> tasks);
-    ~NaivePack() = default;
-    void add(TaskType task);
+    void add(NaiveWorkUnit task);
 
 private:
-    std::set<NaiveWorkUnit> tasks;
-    double total_load;
+    std::vector<NaiveWorkUnit> tasks;
+    double total_load = 0.0;
     // template <class T> friend class BasePackingScheme; // T should be TaskType. Fix later
 
 public:
@@ -66,8 +58,8 @@ public:
     int ntasks() { return tasks.size(); }
     double load() const { return total_load; }
     std::vector<NaiveWorkUnit> copy_and_destroy(); // Excludes need of friend class
-    bool operator>(double);
-    bool operator<(double);
-    bool operator>(NaivePack& rhs) {return load() > rhs.load();}
-    bool operator<(NaivePack& rhs) {return load() < rhs.load();}
+    bool operator>(double) const;
+    bool operator<(double) const;
+    bool operator>(NaivePack rhs) const;
+    bool operator<(NaivePack rhs) const;
 };
