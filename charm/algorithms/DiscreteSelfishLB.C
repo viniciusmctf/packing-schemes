@@ -91,23 +91,23 @@ void DiscreteSelfishLB::Strategy(const DistBaseLB::LDStats* const stats) {
   }
 
   // CalculateMigrations();
-  double data[2] = {my_load, max_task};
+  double data = my_load;
   CkCallback cb = CkCallback(CkReductionTarget(DiscreteSelfishLB, LoadReduction), thisProxy);
-  contribute(2*sizeof(double), (void*) data, sum_max_doubleType, cb);
+  contribute(sizeof(double), &data, CkReduction::sum_double, cb);
 }
 
-void DiscreteSelfishLB::LoadReduction(CkReductionMsg* msg) {
-  double* res = (double*) msg->getData();
-  avg_load = res[0]/(double)CkNumPes();
-  double max_task = res[1];
-  double pack_load = calc_pack_load(avg_load, max_task);
-  int pack_count = my_load/pack_load + 1;
+void DiscreteSelfishLB::LoadReduction(double x) {
+  avg_load = x/(double)CkNumPes();
+  double pack_load = 0.025*avg_load; // calc_pack_load(avg_load, max_task);
+  CkPrintf("Pau no meu cu memo, feio %lf, %lf, %lf\n", avg_load, pack_load);
+  double pack_count = my_load/pack_load + 1;
   CreatePacks(pack_count);
   CalculateMigrations();
 }
 
 void DiscreteSelfishLB::CreatePacks(int n_packs) {
   local_packs = {};
+  // CkPrintf("[%d] %d packs\n", CkMyPe(), n_packs);
   for (int i = 0; i < n_packs; i++) {
     local_packs.push_back(NaivePack());
   }
@@ -116,31 +116,25 @@ void DiscreteSelfishLB::CreatePacks(int n_packs) {
   std::make_heap(local_packs.begin(), local_packs.end(), std::greater<NaivePack>{});
   std::make_heap(ordered_tasks.begin(), ordered_tasks.end());
 
-  CkPrintf("Heap made\n");
-  while (ordered_tasks.size() > 0 && CkMyPe() == 0) {
+  while (ordered_tasks.size() > 0) {
     std::pop_heap(local_packs.begin(), local_packs.end(),
-    [](const NaivePack a, const NaivePack b){ return a.load() > b.load(); }); // Min Heap on Packs
-    CkPrintf("[%d] Step 1\n", CkMyPe());
-    NaivePack& pack = local_packs.back();
-    CkPrintf("[%d] Step 2\n", CkMyPe());
+      [](const NaivePack a, const NaivePack b){ return a.load() > b.load(); }); // Min Heap on Packs
+    NaivePack pack = local_packs.back();
+    local_packs.pop_back();
     std::pop_heap(ordered_tasks.begin(), ordered_tasks.end(),
       [](const NaiveWorkUnit a, const NaiveWorkUnit b){ return a.get_load() < b.get_load(); }); // Max Heap on Tasks
-    CkPrintf("[%d] Step 3\n", CkMyPe());
     auto task = ordered_tasks.back();
-    CkPrintf("[%d] Step 4: %d, %lf\n", CkMyPe(), task.get_id(), task.get_load());
     pack.add(task);
-    CkPrintf("[%d] Step 5\n", CkMyPe());
+    local_packs.push_back(pack);
     std::push_heap(local_packs.begin(), local_packs.end(),
       [](const NaivePack a, const NaivePack b){ return a.load() > b.load(); }); // Min Heap on Packs
-    CkPrintf("[%d] Step 6\n", CkMyPe());
     ordered_tasks.pop_back();
-    CkPrintf("[%d] Remaining tasks... %d\n", CkMyPe(), ordered_tasks.size());
   }
-  if ( _lb_args.debug() > 2 )
-  for (auto pack : local_packs) {
-    CkPrintf("[%d] I have a pack of load %lf\n", CkMyPe(), pack.load());
+  if ( _lb_args.debug() > 2 ) {
+    for (auto pack : local_packs) {
+      CkPrintf("[%d] I have a pack of load %lf\n", CkMyPe(), pack.load());
+    }
   }
-
 }
 
 void DiscreteSelfishLB::CalculateMigrations() {

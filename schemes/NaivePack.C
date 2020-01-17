@@ -41,10 +41,7 @@ std::vector<int> const NaivePack::get_ids() {
 }
 
 void NaivePack::add(NaiveWorkUnit t) {
-  printf("I say goodbye\n");
   tasks.push_back(t);
-  printf("You say\n");
   total_load += t.get_load();
-  printf("Hello\n");
   return;
 }

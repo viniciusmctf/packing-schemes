@@ -6,7 +6,7 @@ initnode void lbinit(void);
 group [migratable] DiscreteSelfishLB : DistBaseLB {
   entry void DiscreteSelfishLB(const CkLBOptions &);
   entry void ReceiveTask(int host_id, double host_load, int task_id, double task_load, int arr_position);
-  entry [reductiontarget] void LoadReduction(CkReductionMsg*);
+  entry [reductiontarget] void LoadReduction(double);
   entry [reductiontarget] void NextIteration(double);
   entry void ConfirmRecv(bool recv, int who, int arr_position);
   entry void MoveTasks(int who, int msg_size,int task_id[msg_size], int destination[msg_size]);

@@ -14,7 +14,7 @@ class NaiveWorkUnit {
 public:
     NaiveWorkUnit() : id(-1), load(0.0) {}
     NaiveWorkUnit(int id, double load) : id(id), load(load) {}
-    ~NaiveWorkUnit() {}
+    NaiveWorkUnit(const NaiveWorkUnit&) = default;
     double get_load() const { return load; }
     int get_id() const { return id; }
     bool operator==(const NaiveWorkUnit& rhs) const {
@@ -44,14 +44,13 @@ protected:
 
 class NaivePack {
 public:
-    NaivePack() { tasks = {}; tasks.reserve(10); }
+    NaivePack() = default;
     NaivePack(std::initializer_list<NaiveWorkUnit> tasks);
     void add(NaiveWorkUnit task);
 
 private:
-    std::vector<NaiveWorkUnit> tasks;
+    std::vector<NaiveWorkUnit> tasks {};
     double total_load = 0.0;
-    // template <class T> friend class BasePackingScheme; // T should be TaskType. Fix later
 
 public:
     std::vector<int> const get_ids();
